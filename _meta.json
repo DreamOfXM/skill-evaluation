@@ -1,0 +1,14 @@
+{
+  "slug": "skill-evaluation",
+  "version": "3.0.0",
+  "author": "DreamOfXM",
+  "trigger_words": [
+    "帮我评测",
+    "帮我评估",
+    "写得怎么样",
+    "review skill",
+    "skill 质量",
+    "评测一下"
+  ],
+  "tags": ["skill", "evaluation", "meta"]
+}
