@@ -1,12 +1,13 @@
-# Skill Evaluation
+# Agent Skill Quality Review
 
 <p align="center">
   <img src="https://img.shields.io/badge/Skill%20Score-4.8%2F5-brightgreen?style=for-the-badge" alt="Skill Score">
   <img src="https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge" alt="License">
-  <img src="https://img.shields.io/badge/Claude%20Code-Compatible-green?style=for-the-badge" alt="Claude Code">
+  <img src="https://img.shields.io/badge/Supported%20Frameworks-Claude%20|%20Qoder%20|%20LangChain%20|%20AutoGen-green?style=for-the-badge" alt="Frameworks">
 </p>
 
-> A framework for evaluating Claude Code skill quality — what it does and doesn't evaluate.
+> ✅ **Multi-Agent Framework Compatible**：Claude Code Skills、Qoder Skills、LangChain Tools、AutoGen Agents 以及其他 LLM 应用<br>
+> ❌ Not specific to any single agent platform (e.g., not limited to Claude Code)
 
 [Read in Chinese](README_zh.md)
 
@@ -14,7 +15,7 @@
 
 ## What It Evaluates
 
-This framework evaluates **how well a skill is written**:
+This framework evaluates **how well an agent skill is written**:
 
 | Dimension | What It Checks |
 |-----------|---------------|
@@ -27,7 +28,7 @@ This framework evaluates **how well a skill is written**:
 
 ## What It Doesn't Evaluate
 
-This framework does NOT evaluate **how well a skill works**:
+This framework does NOT evaluate **how well an agent skill works in practice**:
 
 | Not Evaluated | Reason |
 |---------------|-------|
@@ -92,26 +93,23 @@ Evaluated popular skills:
 # Clone the repository
 git clone https://github.com/DreamOfXM/skill-evaluation.git
 
-# Add as a Claude Code skill
+# Add as an agent skill (any platform)
 cp -r skill-evaluation ~/.agents/skills/
 ```
 
-### Usage
+### Usage Examples
+
+**In any agent conversation:**
 
 ```bash
-# Evaluate any skill
-python3 ~/.agents/skills/skill-evaluation/scripts/evaluate_skill.py ~/.agents/skills/your-skill
-
-# JSON output for automation
-python3 ~/.agents/skills/skill-evaluation/scripts/evaluate_skill.py ~/.agents/skills/your-skill --output json
-```
-
-### Claude Code Integration
-
-In any Claude Code conversation:
-
-```
+# Evaluate a Claude Code skill
 帮我评测一下 brainstorming skill
+
+# Evaluate a Qoder skill
+评估一下 product-design skill
+
+# Evaluate a LangChain tool
+看看我的 LangChain 工具写得好不好
 ```
 
 ---
