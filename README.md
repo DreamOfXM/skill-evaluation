@@ -8,11 +8,11 @@
 
 > A framework for evaluating Claude Code skill quality — what it does and doesn't evaluate.
 
-[中文版](README_zh.md)
+[Read in Chinese](README_zh.md)
 
 ---
 
-## What It Evaluates | 它评什么
+## What It Evaluates
 
 This framework evaluates **how well a skill is written**:
 
@@ -25,7 +25,7 @@ This framework evaluates **how well a skill is written**:
 
 ---
 
-## What It Doesn't Evaluate | 它不评什么
+## What It Doesn't Evaluate
 
 This framework does NOT evaluate **how well a skill works**:
 
