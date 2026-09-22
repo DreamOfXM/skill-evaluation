@@ -8,7 +8,7 @@
 
 > A framework for evaluating Claude Code skill quality — what it does and doesn't evaluate.
 
-[中文版](README_zh.md) | [English](README.md)
+[中文版](README_zh.md)
 
 ---
 
