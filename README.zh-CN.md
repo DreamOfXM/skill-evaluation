@@ -8,7 +8,7 @@
 
 > 用于评估 Claude Code 技能质量的框架 — 它评什么，不评什么。
 
-[English](README.md)
+[English](README.md) | [中文](README.zh-CN.md)
 
 ---
 

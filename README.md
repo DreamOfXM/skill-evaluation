@@ -9,7 +9,7 @@
 > ✅ **Multi-Agent Framework Compatible**：Claude Code Skills、Qoder Skills、LangChain Tools、AutoGen Agents 以及其他 LLM 应用<br>
 > ❌ Not specific to any single agent platform (e.g., not limited to Claude Code)
 
-[Read in Chinese](README_zh.md)
+[[English](README.md) | [中文](README.zh-CN.md)](README_zh.md)
 
 ---
 
