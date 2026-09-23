@@ -45,13 +45,12 @@ Types:
 - `test`: Adding tests
 - `chore`: Maintenance
 
-### Adding New Evaluation Dimensions
+### Adding New Failure Layers
 
-1. Define rubric criteria in `references/skill-rubric.md`
-2. Implement scorer in `scripts/evaluate_skill.py`
-3. Add test cases
-4. Update documentation
-5. Ensure self-evaluation score ≥ 4.5
+1. Record the real incident in `references/failure-log.md` (failure shape → which layer → the check it becomes)
+2. Define the detection action in SKILL.md's layer table — a layer without a detection action doesn't count as checked
+3. If mechanically checkable, implement it in `scripts/evaluate_skill.py`
+4. Re-run self-evaluation: static four-dimension score ≥ 4.5 and layer clearance clean
 
 ### Style Guide
 

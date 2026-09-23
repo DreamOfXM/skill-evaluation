@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """
-评估一个 skill 的写作质量。
+评估一个 skill 的静态质量（快速模式的机械部分）。
 
-评估维度：
-1. 触发准确性 - trigger_words 是否精准
-2. 描述清晰度 - description 是否简洁明了
-3. 结构完整性 - 必要章节是否齐全
-4. 指令可操作性 - 规则是否无歧义
+覆盖失效层（完整模型见 SKILL.md）：
+- 触发层（静态）：trigger_words 数量与质量
+- 写作质量层：描述清晰度、结构完整性、指令可操作性
+- 承诺层（存在性）：SKILL.md/README 引用的本库文件是否存在
+- 口径层（机械项）：_meta.json 与 frontmatter 同步、版本与 CHANGELOG 对齐
+- 身份层：定位段矛盾信号初筛（最终判定需人工对读）
+
+身份层对读、方法论层审计、执行层实跑由评审者完成，引擎不替代。
 
 用法:
   python3 evaluate_skill.py <skill_path> [--output markdown|json]
@@ -350,6 +353,85 @@ def determine_skill_type(content, frontmatter):
         return '混合型'
 
 
+def check_static_layers(skill_path, content, frontmatter, meta_data):
+    """静态可机械检查的失效层：承诺层（引用存在性）、口径层（元数据复算）、身份层（矛盾信号初筛）"""
+    root = Path(skill_path).expanduser().resolve()
+    layers = []
+
+    # 承诺层：正文与 README 引用的本库相对路径是否存在（外部绝对路径不算本库承诺）
+    ref_re = re.compile(r'(?:scripts|references)/[\w\-]+(?:/[\w\-]+)*\.(?:py|md|mjs|sh|js|ts)')
+    referenced = {}
+    docs = [('SKILL.md', content)]
+    for readme in sorted(root.glob('README*.md')):
+        try:
+            docs.append((readme.name, readme.read_text(encoding='utf-8')))
+        except OSError:
+            pass
+    for doc_name, doc in docs:
+        for line_no, line in enumerate(doc.split('\n'), 1):
+            # 含外部绝对路径的行，行内相对引用视为锚定外部根（如"真源在 ~/x/（…+ scripts/y.py）"），不算本库承诺
+            if '~/' in line or '/Users/' in line:
+                continue
+            for m in ref_re.finditer(line):
+                prev = line[m.start() - 1] if m.start() > 0 else ''
+                if prev in '~/.' or prev.isalnum() or prev == '-':
+                    continue  # 更长路径的一部分（外部引用），不是本库承诺
+                referenced.setdefault(m.group(0), f'{doc_name}:{line_no}')
+    missing = [r for r in sorted(referenced) if not (root / r).exists()]
+    layers.append({
+        'layer': '承诺层',
+        'action': f'引用文件存在性（{len(referenced)} 处本库引用）',
+        'status': '✗ 失效' if missing else '✓ 通过',
+        'detail': '缺失：' + '、'.join(missing) if missing else '本库引用全部存在',
+    })
+
+    # 口径层：_meta 与 frontmatter 同步、name 与目录名一致、版本出现在 CHANGELOG
+    findings = []
+    meta_desc = meta_data.get('description')
+    if meta_desc is not None and meta_desc != frontmatter.get('description', ''):
+        findings.append('_meta.json 与 frontmatter 的 description 不一致')
+    meta_name = meta_data.get('name') or meta_data.get('slug')
+    if meta_name and frontmatter.get('name') and meta_name != frontmatter['name']:
+        findings.append('_meta.json 与 frontmatter 的 name 不一致')
+    if frontmatter.get('name') and frontmatter['name'] != root.name:
+        findings.append(f'frontmatter name（{frontmatter["name"]}）≠ 目录名（{root.name}）')
+    version = meta_data.get('version') or frontmatter.get('version')
+    changelog = root / 'CHANGELOG.md'
+    if version and changelog.exists():
+        try:
+            if version not in changelog.read_text(encoding='utf-8'):
+                findings.append(f'版本 {version} 未出现在 CHANGELOG.md')
+        except OSError:
+            pass
+    layers.append({
+        'layer': '口径层',
+        'action': '元数据同步与版本对齐复算',
+        'status': '⚠ 存疑' if findings else '✓ 通过',
+        'detail': '；'.join(findings) if findings else '元数据与版本口径一致',
+    })
+
+    # 身份层：定位段"不做 X"声明 vs 正文实跑表述（机械初筛，最终需人工对读）
+    head = content[:3000]
+    neg_markers = [m for m in ('不是功能测试', '纯文档层面', '只做静态分析') if m in head]
+    pos_markers = [m for m in ('实跑', '实际跑') if m in content]
+    if neg_markers and pos_markers:
+        layers.append({
+            'layer': '身份层',
+            'action': '定位段矛盾信号初筛',
+            'status': '⚠ 存疑',
+            'detail': f'定位段含 {neg_markers}、正文含 {pos_markers}——需人工对读定位段与工作流',
+        })
+    else:
+        layers.append({
+            'layer': '身份层',
+            'action': '定位段矛盾信号初筛',
+            'status': '⏠ 需人工对读',
+            'detail': '未检出机械矛盾信号；本层最终判定需对读定位段与工作流',
+        })
+
+    return layers
+
+
 def generate_report(skill_path, scores, mode='quick'):
     """生成评估报告"""
     skill_name = Path(skill_path).name
@@ -361,7 +443,7 @@ def generate_report(skill_path, scores, mode='quick'):
     action_score, action_issues = scores['actionability']
     skill_type = scores.get('type', '混合型')
 
-    # 综合评分（简化版，不含真实效果）
+    # 静态四维分（触发静态 + 写作质量层；身份/口径/承诺在层清检表）
     weighted_score = (
         trigger_score * 0.25 +
         desc_score * 0.25 +
@@ -378,6 +460,14 @@ def generate_report(skill_path, scores, mode='quick'):
     priority_order = {'high': 0, 'medium': 1, 'low': 2}
     all_issues.sort(key=lambda x: priority_order.get(x['level'], 3))
 
+    # 层清检表（静态部分）
+    layers = scores.get('layers', [])
+    layer_table = "\n---\n\n## 层清检表（静态部分）\n\n| 层 | 检测动作 | 结果 | 说明 |\n|----|---------|------|------|\n"
+    for lay in layers:
+        layer_table += f"| {lay['layer']} | {lay['action']} | {lay['status']} | {lay['detail']} |\n"
+    layer_table += "| 方法论层 | 工作流逐步找主 | ⏸ 未检 | 快速模式不检，深度模式审计 |\n"
+    layer_table += "| 执行层 | 实跑 + 边界探针 | ⏸ 未检 | 快速模式不检，深度模式实跑 |\n"
+
     # 生成报告
     report = f"""# Skill 质量评估报告：{skill_name}
 
@@ -387,7 +477,9 @@ def generate_report(skill_path, scores, mode='quick'):
 
 ---
 
-## 综合评分：{weighted_score:.1f}/5
+## 静态四维分：{weighted_score:.1f}/5
+
+（触发层静态 + 写作质量层；身份/口径/承诺见层清检表）
 
 | 维度 | 分数 | 状态 |
 |------|------|------|
@@ -395,7 +487,6 @@ def generate_report(skill_path, scores, mode='quick'):
 | 描述清晰度 | {desc_score} | {'✓ 良好' if desc_score >= 4 else '⚠ 需改进'} |
 | 结构完整性 | {struct_score} | {'✓ 良好' if struct_score >= 4 else '⚠ 需改进'} |
 | 指令可操作性 | {action_score} | {'✓ 良好' if action_score >= 4 else '⚠ 需改进'} |
-| 真实效果 | — | ⏸ 未评估（{'快速模式' if mode == 'quick' else '可手动验证'}） |
 
 ---
 
@@ -409,7 +500,7 @@ def generate_report(skill_path, scores, mode='quick'):
 | 边界情况处理 | {'✓' if checks.get('边界情况') else '✗'} |
 | 示例 | {'✓' if checks.get('示例') else '✗'} |
 | 相关 skill 引用 | {'✓' if checks.get('相关skill') else '✗'} |
-
+{layer_table}
 ---
 
 ## 问题列表
@@ -467,6 +558,7 @@ def generate_report(skill_path, scores, mode='quick'):
         'date': date,
         'mode': mode,
         'type': skill_type,
+        'score_kind': 'static_four',
         'scores': {
             'trigger': trigger_score,
             'description': desc_score,
@@ -474,6 +566,7 @@ def generate_report(skill_path, scores, mode='quick'):
             'actionability': action_score,
         },
         'weighted_score': round(weighted_score, 1),
+        'layers': layers,
         'issues': all_issues,
     }
 
@@ -498,6 +591,7 @@ def main():
         'structure': score_structure_completeness(content, frontmatter),
         'actionability': score_actionability(content),
         'type': determine_skill_type(content, frontmatter),
+        'layers': check_static_layers(args.skill_path, content, frontmatter, meta_data),
     }
 
     # 生成报告

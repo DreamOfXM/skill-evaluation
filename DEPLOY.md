@@ -21,9 +21,10 @@ git add .
 # Commit
 git commit -m "feat: initial release of skill-evaluation
 
-- Dual-mode framework for agent skill quality (any platform)
-- Quick mode: 4-dimension static scoring (trigger, description, structure, actionability)
-- Deep mode: trigger testing + real-run verification
+- Layered failure model for agent skill quality (any platform)
+- Seven layers: trigger / writing / identity / consistency / promise / methodology / execution
+- Quick mode: static layer checks + four-dimension score
+- Deep mode: methodology audit + real-run verification
 - Real benchmark data from popular skills
 - Apache 2.0 License
 
@@ -42,7 +43,7 @@ git push -u origin main
 
 1. Go to https://github.com/new
 2. Repository name: `skill-evaluation`
-3. Description: `A dual-mode framework for evaluating agent skill quality — quick static scoring plus deep real-run verification.`
+3. Description: `A layered failure-model framework for evaluating agent skills — seven layers, static checks plus deep real-run verification.`
 4. Public
 5. License: Apache License 2.0
 6. Click "Create repository"

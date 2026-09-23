@@ -1,8 +1,8 @@
 {
   "slug": "skill-evaluation",
-  "version": "3.1.0",
+  "version": "4.0.0",
   "author": "DreamOfXM",
-  "description": "评估任何 agent skill 的写作质量：触发、描述、结构、可操作性；深度模式含实跑验证。",
+  "description": "按失效层评估 agent skill：触发、写作、身份、口径、承诺、方法论、执行；深度实跑验证。",
   "trigger_words": [
     "帮我评测",
     "帮我评估",

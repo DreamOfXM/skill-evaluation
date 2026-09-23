@@ -15,15 +15,19 @@
 
 ## What It Evaluates
 
-This framework evaluates **how well an agent skill is written**:
+Evaluation = checking a skill against a **layered failure model** — knowing where skills break is what qualifies an evaluator:
 
-| Dimension | What It Checks |
-|-----------|---------------|
-| **Trigger Accuracy** | Does it fire at the right time? |
-| **Description Clarity** | Can users understand what it does in 3 seconds? |
-| **Structure Completeness** | Does it have all necessary sections? |
-| **Actionability** | Are instructions unambiguous? |
-| **Real-World Effect** *(deep mode only)* | Does the skill actually do what it promises? — verified by running its declared commands |
+| Layer | Failure Shape | Detection Action | Quick | Deep |
+|-------|--------------|------------------|-------|------|
+| **Trigger** | misfires / misses | trigger_words static rules; `test_triggers.py` | static | +live |
+| **Writing quality** | vague description, missing sections, ambiguous instructions | rubric rules (engine) | ✓ | ✓ |
+| **Identity** | self-description contradicts the body | read positioning vs workflow side by side | ✓ | ✓ |
+| **Consistency** | numbers/claims differ across docs | targeted grep + recomputation | ✓ | ✓ |
+| **Promise** | referenced files/commands don't exist | existence check; `--help` | existence | +live |
+| **Methodology** | workflow steps with no owner | assign an owner per step (command / delegated doc / the AI itself) | ✗ | ✓ |
+| **Execution** | declared commands fail or exit codes mismatch the contract | live runs + boundary probes | ✗ | ✓ |
+
+Every layer binds a detection action; the report is a layer-by-layer clearance list with evidence — never a bare "no problems". Incidents feed back: every real failure becomes a check (`references/failure-log.md`).
 
 ---
 
@@ -51,18 +55,25 @@ Quick mode covers the first half (is it well-written?); deep mode samples the se
 
 ## Two Evaluation Modes
 
-| Dimension | Quick Mode | Deep Mode |
-|-----------|-----------|-----------|
-| **Trigger Accuracy** | 25% | 20% |
-| **Description Clarity** | 25% | 20% |
-| **Structure Completeness** | 25% | 20% |
-| **Actionability** | 25% | 25% |
-| **Real-World Effect** | — | 15% |
+**Quick mode** outputs a static four-dimension score (trigger / description / structure / actionability, 25% each — engine-measured), plus a layer clearance table for identity / consistency / promises (pass / suspect / fail, not rolled into the number).
+
+**Deep mode** adds a methodology audit and live runs of declared commands, producing a seven-layer weighted composite:
+
+| Layer | Weight |
+|-------|--------|
+| Trigger | 15% |
+| Writing quality | 15% |
+| Identity | 10% |
+| Consistency | 10% |
+| Promise | 10% |
+| Methodology | 20% |
+| Execution | 20% |
 
 Deep mode additionally includes:
 
 - **Trigger testing** — run `scripts/test_triggers.py` for measured hit / false-positive / miss rates
-- **Real-world effect verification** — run the skill's declared commands (tool-type) or walk its instructions on a real case (advisory-type), pasting command + exit code + output excerpt as evidence
+- **Methodology audit** — every workflow step must have an owner: a command, a delegated doc, or the AI itself; delegation via an arbitration table counts, ownerless steps don't
+- **Real-run verification** — run the skill's declared commands (tool-type) or walk its instructions on a real case (advisory-type), pasting command + exit code + output excerpt as evidence
 
 Deep mode actually runs the skill's commands, so it may take considerably longer — the time promise is qualitative only, no fixed minutes.
 
@@ -80,7 +91,7 @@ Deep mode actually runs the skill's commands, so it may take considerably longer
 
 ## Benchmark Results
 
-Evaluated popular skills:
+Evaluated popular skills (static four-dimension scores, quick mode, engine-measured and reproducible):
 
 | Skill | Score | Trigger | Description | Structure | Actionability |
 |-------|-------|---------|-------------|-----------|---------------|
@@ -197,6 +208,7 @@ skill-evaluation/
 │   ├── skill-rubric.md               # Scoring criteria
 │   ├── trigger-testing.md            # Trigger analysis method
 │   ├── meta-template.md              # _meta.json template
+│   ├── failure-log.md                # Incident intake (failures become checks)
 │   ├── rubric-design.md              # Rubric calibration (kappa)
 │   ├── statistics.md                 # Sample size / MDE reference
 │   ├── harness.md                    # Run harness contract
