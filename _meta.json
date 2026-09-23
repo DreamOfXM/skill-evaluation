@@ -1,7 +1,8 @@
 {
   "slug": "skill-evaluation",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "author": "DreamOfXM",
+  "description": "评估任何 agent skill 的写作质量：触发、描述、结构、可操作性；深度模式含实跑验证。",
   "trigger_words": [
     "帮我评测",
     "帮我评估",

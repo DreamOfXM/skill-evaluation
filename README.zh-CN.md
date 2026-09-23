@@ -3,10 +3,10 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Skill%20Score-4.8%2F5-brightgreen?style=for-the-badge" alt="技能评分">
   <img src="https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge" alt="许可证">
-  <img src="https://img.shields.io/badge/Claude%20Code-兼容-green?style=for-the-badge" alt="Claude Code">
+  <img src="https://img.shields.io/badge/Supported%20Frameworks-Claude%20|%20Qoder%20|%20LangChain%20|%20AutoGen-green?style=for-the-badge" alt="框架支持">
 </p>
 
-> 用于评估 Claude Code 技能质量的框架 — 它评什么，不评什么。
+> 评估 agent skill 写作质量的框架 — 它评什么，不评什么。
 
 [English](README.md) | [中文](README.zh-CN.md)
 
@@ -22,18 +22,20 @@
 | **描述清晰度** | 用户3秒内能否理解功能？ |
 | **结构完整性** | 是否包含所有必要章节？ |
 | **指令可操作性** | 指令是否明确无歧义？ |
+| **真实效果**（仅深度模式） | skill 承诺的功能实际能否兑现？——实跑其声明的命令验证 |
 
 ---
 
 ## 它不评什么
 
-本框架**不评估**技能用起来效果：
+**快速模式是纯静态分析；深度模式会实跑 skill 自声明的命令做抽验。** 本框架永远不会做的是：
 
 | 不评估 | 原因 |
 |--------|------|
-| "这个技能实际用起来效果好不好？" | 需要用真实测试用例跑技能 |
-| "这个技能在这个场景下合不合适？" | 需要根据使用场景判断 |
-| "Agent 执行得对不对？" | 这是测试 Agent 能力，不是技能质量 |
+| 穷举式功能测试 | 深度模式只抽验 skill 自声明的命令，不枚举测试用例 |
+| 安全审计 | 那是 `skill-vetter` 的职责 |
+| 脚本代码质量 | Python/JS 写得好不好不在范围内 |
+| "这个技能适合我的场景吗？" | 需要根据使用场景判断 |
 
 **为什么这个区分很重要：**
 
@@ -42,18 +44,53 @@ Skill 写得好不好，最终看 agent 执行效果。但这两件事可能脱�
 - **写得好，用起来烂** → description 清楚、trigger 准确，但 agent 理解偏了或场景不匹配
 - **写得烂，用起来行** → 全靠 agent 猜，换个场景就崩
 
-Skill-evaluation 只管前半段：**它写得怎么样**。
+快速模式只管前半段（写得怎么样）；深度模式通过实跑抽验后半段。
 
 ---
 
-## 四维度框架
+## 双模式权重
 
-| 维度 | 权重 | 测量内容 |
-|------|------|---------|
-| **触发准确性** | 25% | 是否在正确时机触发？ |
-| **描述清晰度** | 25% | 用户能否理解它的功能？ |
-| **结构完整性** | 25% | 是否包含所有必要章节？ |
-| **指令可操作性** | 25% | 指令是否明确无歧义？ |
+| 维度 | 快速模式 | 深度模式 |
+|------|---------|---------|
+| **触发准确性** | 25% | 20% |
+| **描述清晰度** | 25% | 20% |
+| **结构完整性** | 25% | 20% |
+| **指令可操作性** | 25% | 25% |
+| **真实效果** | — | 15% |
+
+---
+
+## 两种评估模式
+
+选择评估方式：
+
+```markdown
+你想怎么评估？
+
+A) **快速评估** - 静态分析 + 四维度打分 + Top 3 问题  
+B) **深度评估** - 快速评估 + 触发词测试 + 真实效果实跑验证（要实跑命令，耗时可能较长）
+
+(选 A 或 B)
+```
+
+### 快速评估（默认）
+
+- ✅ **内容包括**：SKILL.md + _meta.json 静态分析、四维度打分、Top 3 问题
+- ✅ **适用场景**：初步了解技能质量
+
+### 深度评估
+
+- ✅ **内容包括**：快速评估 + 触发词测试 + 第五维度"真实效果"评估
+- ✅ **触发词测试**：运行 `scripts/test_triggers.py`，实测命中率 / 误触率 / 漏触率
+- ✅ **真实效果检查项**：
+  - 概念完整性（描述的功能实际能否实现）
+  - 边界处理（边界情况是否有应对）
+  - 错误恢复（出错时是否有指导）
+- ✅ **证据标准**：每个检查点粘贴实际命令 + 退出码 + 输出摘录，"能跑"这类话术不算证据
+- ✅ **权重变化**：加真实效果 15%；前三维各降为 20%，可操作性保持 25%
+- ✅ **适用场景**：需要深入验证技能实际表现
+
+**注意：** 必须通过选择题确认，禁止跳过此步直接开始评估。时间只做定性说明：深度评估要实跑被测 skill 的命令，耗时可能较长，不写具体分钟数。
 
 ### 为什么要这四个维度？
 
@@ -168,6 +205,7 @@ python3 ~/.agents/skills/skill-evaluation/scripts/evaluate_skill.py ~/.agents/sk
 | 客观评分 | ✅ | ❌ |
 | 触发分析 | ✅ | ⚠️ |
 | 可操作性检查 | ✅ | ⚠️ |
+| 实跑验证（深度模式） | ✅ | ❌ |
 | 改进建议 | ✅ | ✅ |
 
 ---
@@ -181,11 +219,17 @@ skill-evaluation/
 │   ├── evaluate_skill.py             # 核心评估引擎
 │   ├── test_triggers.py              # 触发词测试
 │   ├── compare_runs.py               # 改进前后对比
-│   └── flaky_report.py               # 差异检测
+│   ├── flaky_report.py               # 差异检测
+│   ├── check_selfconsistency.py      # 改名/搬动自检
+│   └── _common.py                    # 公共校验层
 ├── references/
-│   ├── skill-rubric.md              # 评分标准
+│   ├── skill-rubric.md               # 评分标准
 │   ├── trigger-testing.md            # 触发词分析方法
-│   └── meta_template.md             # _meta.json模板
+│   ├── meta-template.md              # _meta.json 模板
+│   ├── rubric-design.md              # rubric 校准（kappa）
+│   ├── statistics.md                 # 样本量 / 最小可检差异
+│   ├── harness.md                    # 运行 harness 契约
+│   └── ablation.md                   # 消融方法
 ```
 
 ---

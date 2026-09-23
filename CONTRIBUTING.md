@@ -15,7 +15,7 @@ Found a bug or have a suggestion? Please open an issue with:
 1. **Clear title** describing the problem
 2. **Steps to reproduce** (if bug)
 3. **Expected vs actual behavior**
-4. **Environment** (OS, Claude Code version, etc.)
+4. **Environment** (OS, agent framework + version, etc.)
 
 ### Pull Requests
 
@@ -65,18 +65,13 @@ Types:
 # Clone your fork
 git clone https://github.com/YOUR-USERNAME/skill-evaluation.git
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run tests
-python -m pytest tests/
+# No dependencies required (Python 3 stdlib only)
 
 # Self-evaluate
 python3 scripts/evaluate_skill.py .
+
+# Consistency self-check
+python3 scripts/check_selfconsistency.py
 ```
 
 ## Recognition

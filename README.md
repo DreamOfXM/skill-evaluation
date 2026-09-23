@@ -9,7 +9,7 @@
 > ✅ **Multi-Agent Framework Compatible**：Claude Code Skills、Qoder Skills、LangChain Tools、AutoGen Agents 以及其他 LLM 应用<br>
 > ❌ Not specific to any single agent platform (e.g., not limited to Claude Code)
 
-[[English](README.md) | [中文](README.zh-CN.md)](README_zh.md)
+[English](README.md) | [中文](README.zh-CN.md)
 
 ---
 
@@ -23,18 +23,20 @@ This framework evaluates **how well an agent skill is written**:
 | **Description Clarity** | Can users understand what it does in 3 seconds? |
 | **Structure Completeness** | Does it have all necessary sections? |
 | **Actionability** | Are instructions unambiguous? |
+| **Real-World Effect** *(deep mode only)* | Does the skill actually do what it promises? — verified by running its declared commands |
 
 ---
 
 ## What It Doesn't Evaluate
 
-This framework does NOT evaluate **how well an agent skill works in practice**:
+**Quick mode is static analysis. Deep mode additionally runs the skill's declared commands (sampled verification).** What this framework never does:
 
 | Not Evaluated | Reason |
 |---------------|-------|
-| "Does the skill work well in practice?" | This requires running the skill with real test cases |
-| "Is this skill appropriate for this scenario?" | This is a judgment call based on use case |
-| "Does the agent execute correctly?" | This tests the agent's capability, not the skill's quality |
+| Exhaustive functional testing | Deep mode samples the skill's own declared commands; it doesn't enumerate test cases |
+| Security audit | That's `skill-vetter`'s job |
+| Script/code quality | Whether the Python/JS is well-written is out of scope |
+| "Is this skill appropriate for my scenario?" | This is a judgment call based on use case |
 
 **Why this distinction matters:**
 
@@ -43,18 +45,26 @@ A well-written skill doesn't guarantee good execution. These can diverge:
 - **Well-written, bad results** → Clear description, good triggers, but agent misinterprets or wrong scenario
 - **Poorly written, works anyway** → Relies on agent guessing, breaks in different scenarios
 
-Skill-evaluation only covers the first half: **is it well-written?**
+Quick mode covers the first half (is it well-written?); deep mode samples the second half by actually running the skill.
 
 ---
 
-## The 4-Dimension Framework
+## Two Evaluation Modes
 
-| Dimension | Weight | What It Measures |
-|-----------|--------|-----------------|
-| **Trigger Accuracy** | 25% | Does it fire at the right time? |
-| **Description Clarity** | 25% | Can users understand what it does? |
-| **Structure Completeness** | 25% | Does it have all necessary sections? |
-| **Actionability** | 25% | Are instructions unambiguous? |
+| Dimension | Quick Mode | Deep Mode |
+|-----------|-----------|-----------|
+| **Trigger Accuracy** | 25% | 20% |
+| **Description Clarity** | 25% | 20% |
+| **Structure Completeness** | 25% | 20% |
+| **Actionability** | 25% | 25% |
+| **Real-World Effect** | — | 15% |
+
+Deep mode additionally includes:
+
+- **Trigger testing** — run `scripts/test_triggers.py` for measured hit / false-positive / miss rates
+- **Real-world effect verification** — run the skill's declared commands (tool-type) or walk its instructions on a real case (advisory-type), pasting command + exit code + output excerpt as evidence
+
+Deep mode actually runs the skill's commands, so it may take considerably longer — the time promise is qualitative only, no fixed minutes.
 
 ### Why These Dimensions?
 
@@ -166,6 +176,7 @@ Skills are instructions for LLMs. Unlike traditional code:
 | Objective scoring | ✅ | ❌ |
 | Trigger analysis | ✅ | ⚠️ |
 | Actionability check | ✅ | ⚠️ |
+| Real-run verification (deep mode) | ✅ | ❌ |
 | Improvement suggestions | ✅ | ✅ |
 
 ---
@@ -178,12 +189,18 @@ skill-evaluation/
 ├── scripts/
 │   ├── evaluate_skill.py             # Core evaluation engine
 │   ├── test_triggers.py              # Trigger word testing
-│   ├── compare_runs.py              # Before/after comparison
-│   └── flaky_report.py               # Variance detection
+│   ├── compare_runs.py               # Before/after comparison
+│   ├── flaky_report.py               # Variance detection
+│   ├── check_selfconsistency.py      # Rename/move self-check
+│   └── _common.py                    # Shared validation layer
 ├── references/
-│   ├── skill-rubric.md              # Scoring criteria
+│   ├── skill-rubric.md               # Scoring criteria
 │   ├── trigger-testing.md            # Trigger analysis method
-│   └── meta_template.md             # _meta.json template
+│   ├── meta-template.md              # _meta.json template
+│   ├── rubric-design.md              # Rubric calibration (kappa)
+│   ├── statistics.md                 # Sample size / MDE reference
+│   ├── harness.md                    # Run harness contract
+│   └── ablation.md                   # Ablation method
 ```
 
 ---
