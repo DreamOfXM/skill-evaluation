@@ -12,11 +12,11 @@
 身份层对读、方法论层审计、执行层实跑由评审者完成，引擎不替代。
 
 用法:
-  python3 evaluate_skill.py <skill_path> [--output markdown|json]
+  python3 evaluate_skill.py <skill_path> --mode quick|deep [--output markdown|json]
 
 示例:
-  python3 evaluate_skill.py ~/.agents/skills/brainstorming
-  python3 evaluate_skill.py ~/.agents/skills/brainstorming --output json
+  python3 evaluate_skill.py ~/.agents/skills/brainstorming --mode quick
+  python3 evaluate_skill.py ~/.agents/skills/brainstorming --mode deep --output json
 """
 import argparse
 import json
@@ -465,8 +465,8 @@ def generate_report(skill_path, scores, mode='quick'):
     layer_table = "\n---\n\n## 层清检表（静态部分）\n\n| 层 | 检测动作 | 结果 | 说明 |\n|----|---------|------|------|\n"
     for lay in layers:
         layer_table += f"| {lay['layer']} | {lay['action']} | {lay['status']} | {lay['detail']} |\n"
-    layer_table += "| 方法论层 | 工作流逐步找主 | ⏸ 未检 | 快速模式不检，深度模式审计 |\n"
-    layer_table += "| 执行层 | 实跑 + 边界探针 | ⏸ 未检 | 快速模式不检，深度模式实跑 |\n"
+    layer_table += "| 方法论层 | 工作流逐步找主 | ⏸ 不在引擎职责内 | 深度模式由评审者审计 |\n"
+    layer_table += "| 执行层 | 实跑 + 边界探针 | ⏸ 不在引擎职责内 | 深度模式由评审者实跑 |\n"
 
     # 生成报告
     report = f"""# Skill 质量评估报告：{skill_name}
@@ -574,9 +574,23 @@ def generate_report(skill_path, scores, mode='quick'):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('skill_path', help='Skill 目录路径')
+    parser.add_argument('--mode', choices=['quick', 'deep'],
+                        help='评估模式（必填）：quick=静态五层；deep=七层全检（方法论/执行由评审者完成）')
     parser.add_argument('--output', choices=['markdown', 'json'], default='markdown',
                         help='输出格式（默认 markdown）')
     args = parser.parse_args()
+
+    # --mode 必填闸门：缺失时把选择题打到 stderr 并退 2（参数错=2，与其他脚本契约一致）
+    if args.mode is None:
+        print("""[!] 未指定 --mode。评估模式必须由用户选择，不得代答：
+
+你想怎么评估？
+
+A) 快速评估 - 静态五层检查（触发/写作/身份/口径/承诺）+ 静态四维分 + Top 3 问题
+B) 深度评估 - 快速评估 + 方法论层与执行层实跑验证（七层全检）；要实跑被测 skill 的命令，耗时可能较长
+
+(选 A 或 B；用户消息已明示"快速/深度"时按其选择传 --mode)""", file=sys.stderr)
+        sys.exit(2)
 
     # 读取 skill
     content, frontmatter, meta_data, error = read_skill(args.skill_path)
@@ -595,7 +609,7 @@ def main():
     }
 
     # 生成报告
-    report, data = generate_report(args.skill_path, scores, 'quick')
+    report, data = generate_report(args.skill_path, scores, args.mode)
 
     if args.output == 'json':
         print(json.dumps(data, ensure_ascii=False, indent=2))

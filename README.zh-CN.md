@@ -143,11 +143,11 @@ cp -r skill-evaluation ~/.agents/skills/
 ### 使用
 
 ```bash
-# 评估任何技能
-python3 ~/.agents/skills/skill-evaluation/scripts/evaluate_skill.py ~/.agents/skills/your-skill
+# 评估任何技能（--mode 必填：quick=静态五层；deep=七层全检）
+python3 ~/.agents/skills/skill-evaluation/scripts/evaluate_skill.py ~/.agents/skills/your-skill --mode quick
 
 # JSON 输出用于自动化
-python3 ~/.agents/skills/skill-evaluation/scripts/evaluate_skill.py ~/.agents/skills/your-skill --output json
+python3 ~/.agents/skills/skill-evaluation/scripts/evaluate_skill.py ~/.agents/skills/your-skill --mode quick --output json
 ```
 
 ### Claude Code 集成

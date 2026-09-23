@@ -67,7 +67,7 @@ git clone https://github.com/YOUR-USERNAME/skill-evaluation.git
 # No dependencies required (Python 3 stdlib only)
 
 # Self-evaluate
-python3 scripts/evaluate_skill.py .
+python3 scripts/evaluate_skill.py . --mode quick
 
 # Consistency self-check
 python3 scripts/check_selfconsistency.py
