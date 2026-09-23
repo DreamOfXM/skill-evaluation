@@ -1,10 +1,9 @@
 # Agent Skill Quality Review
 
-![Skill Score](https://img.shields.io/badge/Skill_Score-4.8%2F5-brightgreen?style=flat-square&logo=starship) 
 ![License](https://img.shields.io/badge/License-Apache_2.0-blue?style=flat-square&logo=open-source-initiative) 
 ![Frameworks](https://img.shields.io/badge/Frameworks-Claude_Qoder_LangChain_AutoGen-teal?style=flat-square&logo=langchain)
 
-> ✅ **Multi-Agent Framework Compatible**：Claude Code Skills、Qoder Skills、LangChain Tools、AutoGen Agents 以及其他 LLM 应用  
+> ✅ **Multi-Agent Framework Compatible**: Claude Code Skills, Qoder Skills, LangChain Tools, AutoGen Agents and other LLM applications  
 > ❌ Not specific to any single agent platform (e.g., not limited to Claude Code)
 
 [English](README.md) | [中文](README.zh-CN.md)
@@ -93,12 +92,14 @@ Evaluated popular skills (static four-dimension scores, quick mode, engine-measu
 
 | Skill | Score | Trigger | Description | Structure | Actionability |
 |-------|-------|---------|-------------|-----------|---------------|
-| **skill-evaluation** | **4.8** | 4.0 | 5.0 | 5.0 | 5.0 |
+| skill-evaluation (self-scored) | 4.8 ⚠️ | 4.0 | 5.0 | 5.0 | 5.0 |
 | brainstorming | 2.7 | 1.0 ⚠️ | 2.5 ⚠️ | 4.2 | 3.0 |
 | hallmark | 2.2 | 1.0 ⚠️ | 1.5 ⚠️ | 3.3 | 3.0 |
 | marketing-ideas | 2.2 | 1.0 ⚠️ | 1.5 ⚠️ | 3.3 | 3.0 |
 | ui-ux-pro-max | 2.4 | 1.0 ⚠️ | 1.5 ⚠️ | 4.2 | 3.0 |
 | project-skills | 2.2 | 1.0 ⚠️ | 1.5 ⚠️ | 2.5 | 3.8 |
+
+⚠️ 4.8 is the maximum quick mode can produce, not a high score: the trigger dimension is capped at 4.0 in the engine (`evaluate_skill.py:109`) and the four dimensions weigh 0.25 each, so `0.25×4.0 + 0.25×5.0×3 = 4.75 → 4.8`. The first row is this tool grading its own homework — read the other five.
 
 > **Finding:** Most evaluated skills scored below 3.0 on trigger accuracy and description clarity. Common issues: missing `_meta.json`, overly long descriptions, no trigger word optimization.
 
@@ -108,11 +109,30 @@ Evaluated popular skills (static four-dimension scores, quick mode, engine-measu
 
 ### Installation
 
-```bash
-# Clone the repository
-git clone https://github.com/DreamOfXM/skill-evaluation.git
+One command. It installs into Claude Code, Cursor, Codex and other agents:
 
-# Add as an agent skill (any platform)
+```bash
+npx skills add DreamOfXM/skill-evaluation
+```
+
+[![skills.sh](https://skills.sh/b/DreamOfXM/skill-evaluation)](https://skills.sh/DreamOfXM/skill-evaluation)
+
+This installs into the current project. Add `-g` to install for your user instead. Use `-a` to name the agent explicitly — running the command from inside an agent session otherwise lands the files in `.agents/skills/`, which Claude Code does not read:
+
+```bash
+npx skills add DreamOfXM/skill-evaluation -a claude-code
+```
+
+To check what a repository contains before installing anything:
+
+```bash
+npx skills add DreamOfXM/skill-evaluation --list
+```
+
+**Manual install** — copy the folder into your agent's skills directory:
+
+```bash
+git clone https://github.com/DreamOfXM/skill-evaluation.git
 cp -r skill-evaluation ~/.agents/skills/
 ```
 
@@ -120,15 +140,10 @@ cp -r skill-evaluation ~/.agents/skills/
 
 **In any agent conversation:**
 
-```bash
-# Evaluate a Claude Code skill
-帮我评测一下 brainstorming skill
-
-# Evaluate a Qoder skill
-评估一下 product-design skill
-
-# Evaluate a LangChain tool
-看看我的 LangChain 工具写得好不好
+```text
+Evaluate a Claude Code skill:  帮我评测一下 brainstorming skill
+Evaluate a Qoder skill:        评估一下 product-design skill
+Evaluate a LangChain tool:     看看我的 LangChain 工具写得好不好
 ```
 
 ---

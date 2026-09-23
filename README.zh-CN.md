@@ -1,6 +1,5 @@
 # 技能评估框架
 
-![Skill Score](https://img.shields.io/badge/Skill_Score-4.8%2F5-brightgreen?style=flat-square&logo=starship)  
 ![License](https://img.shields.io/badge/License-Apache_2.0-blue?style=flat-square&logo=open-source-initiative)  
 ![Supported Frameworks](https://img.shields.io/badge/Frameworks-Claude_Qoder_LangChain_AutoGen-teal?style=flat-square&logo=langchain)
 
@@ -117,12 +116,14 @@ B) **深度评估** - 快速评估 + 方法论层与执行层实跑验证（七�
 
 | 技能 | 评分 | 触发 | 描述 | 结构 | 可操作性 |
 |------|------|------|------|------|---------|
-| **技能评估框架** | **4.8** | 4.0 | 5.0 | 5.0 | 5.0 |
+| 技能评估框架（自评） | 4.8 ⚠️ | 4.0 | 5.0 | 5.0 | 5.0 |
 | brainstorming | 2.7 | 1.0 ⚠️ | 2.5 ⚠️ | 4.2 | 3.0 |
 | hallmark | 2.2 | 1.0 ⚠️ | 1.5 ⚠️ | 3.3 | 3.0 |
 | marketing-ideas | 2.2 | 1.0 ⚠️ | 1.5 ⚠️ | 3.3 | 3.0 |
 | ui-ux-pro-max | 2.4 | 1.0 ⚠️ | 1.5 ⚠️ | 4.2 | 3.0 |
 | project-skills | 2.2 | 1.0 ⚠️ | 1.5 ⚠️ | 2.5 | 3.8 |
+
+⚠️ 4.8 是快速模式能算出的满分，不是高分：触发维度在引擎里硬顶 4.0（`evaluate_skill.py:109`），四维各占 0.25，`0.25×4.0 + 0.25×5.0×3 = 4.75 → 4.8`。第一行是这个工具给自己打分，不能当对比基准，看后面五行。
 
 > **发现：** 大多数技能在触发准确性和描述清晰度上得分低于 3.0。常见问题：缺少 `_meta.json`、描述过长、缺少触发词优化。
 
@@ -132,11 +133,30 @@ B) **深度评估** - 快速评估 + 方法论层与执行层实跑验证（七�
 
 ### 安装
 
-```bash
-# 克隆仓库
-git clone https://github.com/DreamOfXM/skill-evaluation.git
+一条命令，装好后 Claude Code、Cursor、Codex 等 agent 都能用：
 
-# 添加为 Claude Code 技能
+```bash
+npx skills add DreamOfXM/skill-evaluation
+```
+
+[![skills.sh](https://skills.sh/b/DreamOfXM/skill-evaluation)](https://skills.sh/DreamOfXM/skill-evaluation)
+
+默认装进当前项目；加 `-g` 改成装进用户目录。用 `-a` 指定 agent——在 agent 会话里直接跑这条命令，文件会落到 `.agents/skills/`，而 Claude Code 不读这个目录：
+
+```bash
+npx skills add DreamOfXM/skill-evaluation -a claude-code
+```
+
+安装前想先看仓库里有什么：
+
+```bash
+npx skills add DreamOfXM/skill-evaluation --list
+```
+
+**手动安装** —— 把文件夹拷进你 agent 的 skills 目录：
+
+```bash
+git clone https://github.com/DreamOfXM/skill-evaluation.git
 cp -r skill-evaluation ~/.agents/skills/
 ```
 
@@ -152,10 +172,12 @@ python3 ~/.agents/skills/skill-evaluation/scripts/evaluate_skill.py ~/.agents/sk
 
 ### Claude Code 集成
 
-在任何 Claude Code 对话中：
+在任何 agent 对话中：
 
-```
-帮我评测一下 brainstorming skill
+```text
+评测 Claude Code 技能：  帮我评测一下 brainstorming skill
+评测 Qoder 技能：         评估一下 product-design skill
+评测 LangChain 工具：     看看我的 LangChain 工具写得好不好
 ```
 
 ---
