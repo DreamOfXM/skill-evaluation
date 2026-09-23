@@ -141,9 +141,9 @@ cp -r skill-evaluation ~/.agents/skills/
 **In any agent conversation:**
 
 ```text
-Evaluate a Claude Code skill:  帮我评测一下 brainstorming skill
-Evaluate a Qoder skill:        评估一下 product-design skill
-Evaluate a LangChain tool:     看看我的 LangChain 工具写得好不好
+Evaluate a Claude Code skill:  skill review for the brainstorming skill
+Evaluate a Qoder skill:        run skill evaluation on the product-design skill
+Evaluate a LangChain tool:     give my LangChain tool a skill quality report
 ```
 
 ---

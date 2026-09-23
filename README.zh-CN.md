@@ -176,8 +176,8 @@ python3 ~/.agents/skills/skill-evaluation/scripts/evaluate_skill.py ~/.agents/sk
 
 ```text
 评测 Claude Code 技能：  帮我评测一下 brainstorming skill
-评测 Qoder 技能：         评估一下 product-design skill
-评测 LangChain 工具：     看看我的 LangChain 工具写得好不好
+评测 Qoder 技能：         帮我评估一下 product-design skill
+评测 LangChain 工具：     看看我的 LangChain 工具写得怎么样
 ```
 
 ---
