@@ -1,12 +1,10 @@
 # Agent Skill Quality Review
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Skill%20Score-4.8%2F5-brightgreen?style=for-the-badge" alt="Skill Score">
-  <img src="https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge" alt="License">
-  <img src="https://img.shields.io/badge/Supported%20Frameworks-Claude%20|%20Qoder%20|%20LangChain%20|%20AutoGen-green?style=for-the-badge" alt="Frameworks">
-</p>
+![Skill Score](https://img.shields.io/badge/Skill_Score-4.8%2F5-brightgreen?style=flat-square&logo=starship) 
+![License](https://img.shields.io/badge/License-Apache_2.0-blue?style=flat-square&logo=open-source-initiative) 
+![Frameworks](https://img.shields.io/badge/Frameworks-Claude_Qoder_LangChain_AutoGen-teal?style=flat-square&logo=langchain)
 
-> ✅ **Multi-Agent Framework Compatible**：Claude Code Skills、Qoder Skills、LangChain Tools、AutoGen Agents 以及其他 LLM 应用<br>
+> ✅ **Multi-Agent Framework Compatible**：Claude Code Skills、Qoder Skills、LangChain Tools、AutoGen Agents 以及其他 LLM 应用  
 > ❌ Not specific to any single agent platform (e.g., not limited to Claude Code)
 
 [English](README.md) | [中文](README.zh-CN.md)

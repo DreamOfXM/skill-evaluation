@@ -1,10 +1,8 @@
 # 技能评估框架
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Skill%20Score-4.8%2F5-brightgreen?style=for-the-badge" alt="技能评分">
-  <img src="https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge" alt="许可证">
-  <img src="https://img.shields.io/badge/Supported%20Frameworks-Claude%20|%20Qoder%20|%20LangChain%20|%20AutoGen-green?style=for-the-badge" alt="框架支持">
-</p>
+![Skill Score](https://img.shields.io/badge/Skill_Score-4.8%2F5-brightgreen?style=flat-square&logo=starship)  
+![License](https://img.shields.io/badge/License-Apache_2.0-blue?style=flat-square&logo=open-source-initiative)  
+![Supported Frameworks](https://img.shields.io/badge/Frameworks-Claude_Qoder_LangChain_AutoGen-teal?style=flat-square&logo=langchain)
 
 > 评估 agent skill 写作质量的框架 — 它评什么，不评什么。
 
