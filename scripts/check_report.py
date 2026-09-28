@@ -3,8 +3,11 @@
 证据纪律层机械核——检查一份评估报告是否诚实。
 
 只做三件可机械核的事，其余证据项由评审者自查（报告中如实标"证据层未核"）：
-1. 锚核对：报告声称的静态四维分 vs 引擎实测（逐字比对）
-2. 层结论核对：报告层清检表中 承诺层/口径层 的结论 vs 引擎 layers 输出
+1. 锚核对：报告声称的静态诊断四维（旧报告写"静态四维分"）vs 引擎实测（逐字比对）
+2. 层结论核对：报告层清检表中 承诺层/口径层 的**机械段**结论 vs 引擎 layers 输出
+   （结论列可两段：机械段 ｜ 「人工」起头的复算段。人工段不进机械核——引擎那两层只查
+   元数据同步与引用存在性，查不到"规则表写了几支、代码实现几支"；但人工段的 ⚠/✗ 照样
+   受第 3 项证据块约束。failure-log #10）
 3. 证据块核对：每个 ⚠/✗ 判定的层，报告须有含命令痕迹的代码块（$ / exit / rc= / ←）
 
 本脚本核的是"报告自己"，不评被测 skill——证据纪律层的分数由评审者按
@@ -51,6 +54,7 @@ def main():
 
     data = run_engine(args.skill)
     problems = []
+    notes = []
 
     # 1. 锚核对：静态诊断四维（v5 名称；旧报告写"静态四维分"）
     m = re.search(r'静态(?:诊断四维|四维分)[：:]\s*\**\s*([\d.]+)', report)
@@ -72,14 +76,26 @@ def main():
             problems.append(f'{layer}：报告层清检表缺行')
             continue
         claimed_status = row.group(1)
-        # 取结论主干（✓ 通过 / ⚠ 存疑 / ✗ 失效）
+        # 结论列允许两段：机械段（受本核对约束）｜人工段（以「人工」二字起头，引擎查不到、
+        # 由评审者的复算负责——但 ⚠/✗ 仍会进第 3 项的证据块计数，人工指控同样要交证据）。
+        # 不这么分就出假阳性：引擎的 口径层 只查元数据同步与版本对齐，机械恒 ✓，
+        # 于是"规则表写了三支、代码只实现两支"这类真存疑一标 ⚠ 就被判成"与机械事实不符"
+        # （failure-log #10）。
+        mechanical, _, manual = claimed_status.partition('人工')
+        manual = '人工' + manual if manual else ''
+        # 取机械段主干（✓ 通过 / ⚠ 存疑 / ✗ 失效）
         for token, verdict in (('✗', '失效'), ('⚠', '存疑'), ('✓', '通过')):
-            if token in claimed_status:
+            if token in mechanical:
                 if token not in engine_row['status']:
-                    problems.append(f'{layer}：报告判 [{token} {verdict}]，引擎实测 [{engine_row["status"]}]——结论与机械事实不符')
+                    problems.append(f'{layer}：报告机械段判 [{token} {verdict}]，引擎实测 [{engine_row["status"]}]——结论与机械事实不符')
                 break
         else:
-            problems.append(f'{layer}：报告结论列无可识别判定（✓/⚠/✗）')
+            problems.append(f'{layer}：报告结论列机械段无可识别判定（✓/⚠/✗，人工结论须以「人工」起头另起一段）')
+        if manual:
+            if not any(t in manual for t in ('✓', '⚠', '✗')):
+                problems.append(f'{layer}：写了「人工」段却没有 ✓/⚠/✗ 判定——分段无效')
+            else:
+                notes.append(f'{layer}：机械段 {engine_row["status"]}｜人工段另判（不进机械核，靠复算证据）')
 
     # 3. 证据块核对：⚠/✗ 行数 vs 含命令痕迹的代码块数
     flagged = [l for l in re.findall(r'^\|[^|]+\|[^|]+\|[^|]*[⚠✗][^|]*\|', report, re.M)
@@ -97,8 +113,10 @@ def main():
             print(f'  ✗ {p}')
         print('证据纪律层判 1：报告作废重做（SKILL.md 分档表）')
         sys.exit(1)
-    print(f'证据纪律层机械核：全过（锚数字 {data["weighted_score"]} 一致；承诺/口径结论一致；'
+    print(f'证据纪律层机械核：全过（锚数字 {data["weighted_score"]} 一致；承诺/口径机械段一致；'
           f'{len(flagged)} 个 ⚠/✗ 均有证据块）')
+    for n in notes:
+        print(f'  · {n}')
     print('机械核之外的自查项（分数可溯、无小数编造）由评审者完成；机械核未覆盖处如实标注')
     sys.exit(0)
 

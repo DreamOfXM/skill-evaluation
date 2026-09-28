@@ -494,7 +494,7 @@ def generate_report(skill_path, scores, mode='quick'):
     action_score, action_issues = scores['actionability']
     skill_type = scores.get('type', '混合型')
 
-    # 静态四维分（触发静态 + 写作质量层；身份/口径/承诺在层清检表）
+    # 静态诊断四维（触发静态 + 写作质量层；v5 起为诊断数据，不进评分口径）
     weighted_score = (
         trigger_score * 0.25 +
         desc_score * 0.25 +
@@ -635,7 +635,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('skill_path', help='Skill 目录路径')
     parser.add_argument('--mode', choices=['quick', 'deep'],
-                        help='评估模式（必填）：quick=静态五层；deep=七层全检（方法论/执行由评审者完成）')
+                        help='评估模式（必填）：quick=前置清单+两个质量分；deep=八层全检（方法论/执行/证据纪律由评审者完成）')
     parser.add_argument('--output', choices=['markdown', 'json'], default='markdown',
                         help='输出格式（默认 markdown）')
     args = parser.parse_args()
@@ -646,8 +646,8 @@ def main():
 
 你想怎么评估？
 
-A) 快速评估 - 静态五层检查（触发/写作/身份/口径/承诺）+ 静态四维分 + Top 3 问题
-B) 深度评估 - 快速评估 + 方法论层与执行层实跑验证（七层全检）；要实跑被测 skill 的命令，耗时可能较长
+A) 快速评估 - 前置检查清单（机械项过/不过，不进分）+ 触发质量与可操作性两个质量分 + Top 3 问题
+B) 深度评估 - 快速评估 + 方法论层与执行层实跑验证 + 证据纪律层机械核（八层全检）；要实跑被测 skill 的命令，耗时可能较长
 
 (选 A 或 B；用户消息已明示"快速/深度"时按其选择传 --mode)""", file=sys.stderr)
         sys.exit(2)
