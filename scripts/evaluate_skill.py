@@ -3,12 +3,13 @@
 评估一个 skill 的静态质量（快速模式的机械部分）。
 
 覆盖失效层（完整模型见 SKILL.md）：
-- 触发层（静态）：trigger_words 数量与质量
+- 前置检查（不进分）：结构章节、description 字数句式、trigger_words 存在性、
+  承诺层存在性、口径层机械项
+- 触发层（静态）：trigger_words 误触词质量
 - 写作质量层：描述清晰度、结构完整性、指令可操作性
-- 承诺层（存在性）：SKILL.md/README 引用的本库文件是否存在
-- 口径层（机械项）：_meta.json 与 frontmatter 同步、版本与 CHANGELOG 对齐
 - 身份层：定位段矛盾信号初筛（最终判定需人工对读）
 
+四维分数自 v5 起为「静态诊断四维」（诊断数据，不进评分口径）。
 身份层对读、方法论层审计、执行层实跑由评审者完成，引擎不替代。
 
 用法:
@@ -432,6 +433,56 @@ def check_static_layers(skill_path, content, frontmatter, meta_data):
     return layers
 
 
+def build_precheck(frontmatter, meta_data, content, layers):
+    """前置检查（v5：机械项不进分，只做过/不过判定）"""
+    precheck = []
+
+    fm_name = bool(frontmatter.get('name'))
+    fm_desc = frontmatter.get('description', '')
+    precheck.append({
+        'item': 'frontmatter name/description 存在',
+        'result': '过' if (fm_name and fm_desc) else '不过',
+        'detail': '' if (fm_name and fm_desc) else 'name 或 description 缺失',
+    })
+
+    trigger_words = meta_data.get('trigger_words', [])
+    n = len(trigger_words)
+    if n == 0:
+        result, detail = '不过', '无 trigger_words'
+    elif n > 15:
+        result, detail = '不过', f'{n} 个（>15 过多）'
+    elif n > 10:
+        result, detail = '警告', f'{n} 个（11-15 偏多）'
+    else:
+        result, detail = '过', f'{n} 个'
+    precheck.append({'item': '_meta.json + trigger_words', 'result': result, 'detail': detail})
+
+    desc_len = len(fm_desc)
+    if desc_len == 0 or desc_len > 200:
+        result = '不过'
+    elif desc_len > 100 or '等' in fm_desc:
+        result = '警告'
+    else:
+        result = '过'
+    precheck.append({'item': 'description 字数句式', 'result': result,
+                     'detail': f'{desc_len} 字' + ('；含"等"字' if '等' in fm_desc else '')})
+
+    struct_missing = [k for k, v in {
+        'name': fm_name, 'description': bool(fm_desc), '前置条件': '何时使用' in content or '使用条件' in content or 'When to Use' in content,
+        '边界情况': '边界' in content or '禁止' in content or '红线' in content,
+        '示例': '示例' in content or '```' in content, '相关': '相关' in content or 'Related' in content,
+    }.items() if not v]
+    precheck.append({'item': '六项结构章节', 'result': '过' if not struct_missing else '缺项',
+                     'detail': '' if not struct_missing else '缺：' + '、'.join(struct_missing)})
+
+    for key, item_name in (('承诺层', '引用文件存在性'), ('口径层', '元数据同步')):
+        row = next((l for l in layers if l['layer'] == key), None)
+        if row:
+            result = '过' if '✓' in row['status'] else ('警告' if '⚠' in row['status'] else '不过')
+            precheck.append({'item': item_name, 'result': result, 'detail': row['detail']})
+    return precheck
+
+
 def generate_report(skill_path, scores, mode='quick'):
     """生成评估报告"""
     skill_name = Path(skill_path).name
@@ -467,6 +518,13 @@ def generate_report(skill_path, scores, mode='quick'):
         layer_table += f"| {lay['layer']} | {lay['action']} | {lay['status']} | {lay['detail']} |\n"
     layer_table += "| 方法论层 | 工作流逐步找主 | ⏸ 不在引擎职责内 | 深度模式由评审者审计 |\n"
     layer_table += "| 执行层 | 实跑 + 边界探针 | ⏸ 不在引擎职责内 | 深度模式由评审者实跑 |\n"
+    layer_table += "| 证据纪律层 | check_report.py 机械核 | ⏠ 不在引擎职责内 | 对报告本身核对，非被评 skill |\n"
+
+    # 前置检查（不进分）
+    precheck = scores.get('precheck', [])
+    precheck_table = "\n---\n\n## 前置检查（不进分）\n\n| 前置项 | 结果 | 明细 |\n|--------|------|------|\n"
+    for p in precheck:
+        precheck_table += f"| {p['item']} | {p['result']} | {p['detail']} |\n"
 
     # 生成报告
     report = f"""# Skill 质量评估报告：{skill_name}
@@ -477,9 +535,9 @@ def generate_report(skill_path, scores, mode='quick'):
 
 ---
 
-## 静态四维分：{weighted_score:.1f}/5
+## 静态诊断四维：{weighted_score:.1f}/5
 
-（触发层静态 + 写作质量层；身份/口径/承诺见层清检表）
+（诊断数据，v5 起不进评分口径；前置检查见层清检表之后）
 
 | 维度 | 分数 | 状态 |
 |------|------|------|
@@ -500,7 +558,7 @@ def generate_report(skill_path, scores, mode='quick'):
 | 边界情况处理 | {'✓' if checks.get('边界情况') else '✗'} |
 | 示例 | {'✓' if checks.get('示例') else '✗'} |
 | 相关 skill 引用 | {'✓' if checks.get('相关skill') else '✗'} |
-{layer_table}
+{layer_table}{precheck_table}
 ---
 
 ## 问题列表
@@ -558,7 +616,9 @@ def generate_report(skill_path, scores, mode='quick'):
         'date': date,
         'mode': mode,
         'type': skill_type,
-        'score_kind': 'static_four',
+        'score_kind': 'static_diagnostic',
+        'note': 'v5：四维为静态诊断数据，不进评分；评分口径见 SKILL.md Step 4',
+        'precheck': precheck,
         'scores': {
             'trigger': trigger_score,
             'description': desc_score,
@@ -607,6 +667,7 @@ B) 深度评估 - 快速评估 + 方法论层与执行层实跑验证（七层�
         'type': determine_skill_type(content, frontmatter),
         'layers': check_static_layers(args.skill_path, content, frontmatter, meta_data),
     }
+    scores['precheck'] = build_precheck(frontmatter, meta_data, content, scores['layers'])
 
     # 生成报告
     report, data = generate_report(args.skill_path, scores, args.mode)

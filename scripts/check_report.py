@@ -52,10 +52,10 @@ def main():
     data = run_engine(args.skill)
     problems = []
 
-    # 1. 锚核对：静态四维分
-    m = re.search(r'静态四维分[：:]\s*\**\s*([\d.]+)', report)
+    # 1. 锚核对：静态诊断四维（v5 名称；旧报告写"静态四维分"）
+    m = re.search(r'静态(?:诊断四维|四维分)[：:]\s*\**\s*([\d.]+)', report)
     if not m:
-        problems.append(f'锚数字：报告中找不到"静态四维分"声称（模板要求逐字引用引擎输出）')
+        problems.append(f'锚数字：报告中找不到"静态诊断四维/静态四维分"声称（模板要求逐字引用引擎输出）')
     else:
         claimed = float(m.group(1))
         actual = round(data['weighted_score'], 1)

@@ -52,22 +52,16 @@ Quick mode covers the first half (is it well-written?); deep mode samples the se
 
 ## Two Evaluation Modes
 
-**Quick mode** outputs a static four-dimension score (trigger / description / structure / actionability, 25% each — engine-measured), plus a layer clearance table for identity / consistency / promises (pass / suspect / fail, not rolled into the number).
+**Quick mode (v5)** = a precheck list + two quality scores: mechanical items (existence / word count / required sections) are pass-or-fail only and **carry no score weight**; the scored items are trigger quality and actionability (0-5 each, no composite). The engine's four dimensions are downgraded to diagnostic data.
 
-**Deep mode** adds a methodology audit and live runs of declared commands, producing an eight-layer weighted composite (evidence-discipline layer added at 0.20; the original seven layers scale proportionally ×0.8):
+**Deep mode (v5, tiered weights)**:
 
-| Layer | Weight |
-|-------|--------|
-| Trigger | 12% |
-| Writing quality | 12% |
-| Identity | 8% |
-| Consistency | 8% |
-| Promise | 8% |
-| Methodology | 16% |
-| Execution | 16% |
-| Evidence discipline | 20% |
+| Tier | Layers | Weight |
+|------|--------|--------|
+| High | Evidence discipline / Methodology / Execution | 20% each |
+| Mid | Identity / Consistency recomputation / Trigger quality / Actionability | 10% each |
 
-Evidence discipline carries the top weight (4 of 9 logged incidents were the evaluator's own evidence failures): it doesn't score the skill under review — it scores the report itself, mechanically checked by `scripts/check_report.py` (anchor numbers / layer verdicts / evidence blocks). Methodology and execution remain the top behavior layers of the evaluated skill. Deep reports pin the rubric hash in a config section (`shasum -a 256 references/skill-rubric.md | cut -c1-8`).
+Tiering rationale: an incident distribution of n=9 supports exactly one ordering claim (evidence discipline on top), not decimal-level tuning. Mechanical items all moved into the precheck — **the deep composite can only be earned through behavioral and judgment-based criteria**. Deep reports pin the rubric hash in a config section (`shasum -a 256 references/skill-rubric.md | cut -c1-8`).
 
 Deep mode additionally includes:
 
@@ -91,7 +85,7 @@ Deep mode actually runs the skill's commands, so it may take considerably longer
 
 ## Benchmark Results
 
-Evaluated popular skills (static four-dimension scores, quick mode, engine-measured and reproducible):
+Evaluated popular skills (**legacy 4.x scale**: static four-dimension score, engine-measured and reproducible; since v5 the engine's four dims are diagnostic data, not comparable with v5 scoring):
 
 | Skill | Score | Trigger | Description | Structure | Actionability |
 |-------|-------|---------|-------------|-----------|---------------|
