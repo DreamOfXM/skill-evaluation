@@ -16,15 +16,16 @@ Evaluation = checking a skill against a **layered failure model** — knowing wh
 
 | Layer | Failure Shape | Detection Action | Quick | Deep |
 |-------|--------------|------------------|-------|------|
-| **Trigger** | misfires / misses | trigger_words static rules; `test_triggers.py` | static | +live |
-| **Writing quality** | vague description, missing sections, ambiguous instructions | rubric rules (engine) | ✓ | ✓ |
+| **Trigger quality** | misfire-prone word choices | bad-word rules; `test_triggers.py` | ✓ | +live |
+| **Actionability** | vague or contradictory instructions | vague-word / contradiction rules (engine) | ✓ | ✓ |
 | **Identity** | self-description contradicts the body | read positioning vs workflow side by side | ✓ | ✓ |
 | **Consistency** | numbers/claims differ across docs | targeted grep + recomputation | ✓ | ✓ |
-| **Promise** | referenced files/commands don't exist | existence check; `--help` | existence | +live |
-| **Methodology** | workflow steps with no owner | assign an owner per step (command / delegated doc / the AI itself) | ✗ | ✓ |
-| **Execution** | declared commands fail or exit codes mismatch the contract | live runs + boundary probes | ✗ | ✓ |
+| **Promise** | referenced files/commands don't exist | precheck existence; `--help` + source audit + dependency health | precheck | ✓ |
+| **Methodology** | workflow steps with no owner | assign an owner per step; cross-artifact term comparison | ✗ | ✓ |
+| **Execution** | declared commands fail or exit codes mismatch the contract | live runs + boundary probes + good/bad-sample completeness gate | ✗ | ✓ |
+| **Evidence discipline** | the evaluator's own failures: sourceless numbers, unevidenced claims | `check_report.py` mechanical check | ✓ | ✓ |
 
-Every layer binds a detection action; the report is a layer-by-layer clearance list with evidence — never a bare "no problems". Incidents feed back: every real failure becomes a check (`references/failure-log.md`).
+Mechanical items (file existence, word counts, required sections, metadata sync) live in the **precheck** — pass/fail only, no score weight. Padding a file can no longer buy score; the deep composite is earned through behavioral and judgment-based criteria (tiered weights below). Every layer binds a detection action; the report is a layer-by-layer clearance list with evidence — never a bare "no problems". Incidents feed back: every real failure becomes a check (`references/failure-log.md`).
 
 ---
 
@@ -68,6 +69,7 @@ Deep mode additionally includes:
 - **Trigger testing** — run `scripts/test_triggers.py` for measured hit / false-positive / miss rates
 - **Methodology audit** — every workflow step must have an owner: a command, a delegated doc, or the AI itself; delegation via an arbitration table counts, ownerless steps don't
 - **Real-run verification** — run the skill's declared commands (tool-type) or walk its instructions on a real case (advisory-type), pasting command + exit code + output excerpt as evidence
+- **Evidence-discipline check** — `scripts/check_report.py` mechanically verifies the report itself (anchor numbers / layer verdicts / evidence blocks); promise/consistency verdict cells use a two-segment form — mechanical segment verbatim from the engine ｜ human recomputation segment, which still owes evidence blocks
 
 Deep mode actually runs the skill's commands, so it may take considerably longer — the time promise is qualitative only, no fixed minutes.
 
@@ -143,31 +145,47 @@ Evaluate a Qoder skill:        run skill evaluation on the product-design skill
 Evaluate a LangChain tool:     give my LangChain tool a skill quality report
 ```
 
+**Engine (precheck + static diagnostics, `--mode` required):**
+
+```bash
+python3 scripts/evaluate_skill.py ~/.agents/skills/your-skill --mode quick
+```
+
 ---
 
-## Evaluation Report Example
+## Evaluation Report Example (v5 shape)
 
 ```markdown
-# Skill Quality Report: my-awesome-skill
+# Skill Quality Report: my-awesome-skill @ <date>
 
-**Overall Score: 3.8/5**
+## Config section
+- rubric: <shasum -a 256 references/skill-rubric.md | cut -c1-8>
+- engine: evaluate_skill.py @ <version>
 
-| Dimension | Score | Status |
-|-----------|-------|--------|
-| Trigger Accuracy | 4.0 | ✓ Good |
-| Description Clarity | 3.5 | ⚠ Needs Work |
-| Structure Completeness | 4.0 | ✓ Good |
-| Actionability | 3.5 | ⚠ Needs Work |
+## Precheck (unscored)
 
-## Issues Found
+| Item | Result | Detail |
+|------|--------|--------|
+| _meta.json + trigger_words | fail | no trigger_words |
+| description length/patterns | warn | 127 chars |
+| Six required sections | missing | boundary, examples |
 
-### High Priority (Must Fix)
-1. Missing `trigger_words` in `_meta.json`
-2. Description is 247 characters (recommend <100)
+## Layer clearance (excerpt)
 
-### Medium Priority (Recommended)
-1. Add "When NOT to Use" section
-2. Clarify vague phrase "when appropriate"
+| Layer | Detection action | Result | Evidence |
+|-------|-----------------|--------|----------|
+| Trigger quality | bad-word rules | ⚠ | contains "帮我", engine scores.trigger=… |
+| Actionability | vague-word rules | ⚠ | "适当" ×2, engine scores.actionability=… |
+| Promise | precheck existence | ✓ pass (mechanical) ｜ human ✗ fail: README references config/xx.json which doesn't exist | see evidence appendix |
+
+## Quality scores: trigger 2.5 + actionability 3.0 (quick mode has no composite)
+
+## Issues
+1. [high·precheck] no trigger_words — add _meta.json
+2. [high·promise·human] referenced file missing — fix README or add the file
+
+## Evidence appendix (deep mode required)
+<command + exit code + output excerpt>
 ```
 
 ---
@@ -198,6 +216,7 @@ Skills are instructions for LLMs. Unlike traditional code:
 | Trigger analysis | ✅ | ⚠️ |
 | Actionability check | ✅ | ⚠️ |
 | Real-run verification (deep mode) | ✅ | ❌ |
+| Honesty check on the report itself | ✅ | ❌ |
 | Improvement suggestions | ✅ | ✅ |
 
 ---
@@ -213,6 +232,7 @@ skill-evaluation/
 │   ├── compare_runs.py               # Before/after comparison
 │   ├── flaky_report.py               # Variance detection
 │   ├── check_selfconsistency.py      # Rename/move self-check
+│   ├── check_report.py               # Evidence-discipline mechanical check
 │   └── _common.py                    # Shared validation layer
 ├── references/
 │   ├── skill-rubric.md               # Scoring criteria
