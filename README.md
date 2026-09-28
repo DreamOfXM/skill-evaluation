@@ -54,17 +54,20 @@ Quick mode covers the first half (is it well-written?); deep mode samples the se
 
 **Quick mode** outputs a static four-dimension score (trigger / description / structure / actionability, 25% each — engine-measured), plus a layer clearance table for identity / consistency / promises (pass / suspect / fail, not rolled into the number).
 
-**Deep mode** adds a methodology audit and live runs of declared commands, producing a seven-layer weighted composite:
+**Deep mode** adds a methodology audit and live runs of declared commands, producing an eight-layer weighted composite (evidence-discipline layer added at 0.20; the original seven layers scale proportionally ×0.8):
 
 | Layer | Weight |
 |-------|--------|
-| Trigger | 15% |
-| Writing quality | 15% |
-| Identity | 10% |
-| Consistency | 10% |
-| Promise | 10% |
-| Methodology | 20% |
-| Execution | 20% |
+| Trigger | 12% |
+| Writing quality | 12% |
+| Identity | 8% |
+| Consistency | 8% |
+| Promise | 8% |
+| Methodology | 16% |
+| Execution | 16% |
+| Evidence discipline | 20% |
+
+Evidence discipline carries the top weight (4 of 9 logged incidents were the evaluator's own evidence failures): it doesn't score the skill under review — it scores the report itself, mechanically checked by `scripts/check_report.py` (anchor numbers / layer verdicts / evidence blocks). Methodology and execution remain the top behavior layers of the evaluated skill. Deep reports pin the rubric hash in a config section (`shasum -a 256 references/skill-rubric.md | cut -c1-8`).
 
 Deep mode additionally includes:
 
