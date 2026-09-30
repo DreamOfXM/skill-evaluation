@@ -197,15 +197,26 @@ def score_description_clarity(frontmatter):
     return round(score, 1), issues
 
 
+PREREQ_HEADING = re.compile(
+    r"^#{1,6}\s*(前置条件|何时使用|使用条件|使用前提|前提|Prerequisites|When to Use)", re.M)
+
+
+def _has_prereq(content):
+    """「前置条件」这项检的唯一判据：小节标题命中，或旧关键词命中（保留，防倒退）。
+    两处调用共用本函数——此前结构评分用 5 个关键词、前置检查用 3 个，
+    实测 46 个已装 skill 里 5 个在两处得到相反结论；且不认小节标题，
+    写了 "## 前置条件" 的文档反被判缺项。2026-09-30 用户拍板改为认标题。"""
+    return bool(PREREQ_HEADING.search(content)) or any(
+        k in content for k in ('何时使用', 'When to Use', '使用条件', '前提')
+    ) or 'when to use' in content.lower()
+
+
 def score_structure_completeness(content, frontmatter):
     """评估结构完整性（0-5 分）"""
     checks = {
         'name': bool(frontmatter.get('name')),
         'description': bool(frontmatter.get('description')),
-        '前置条件': (
-            '何时使用' in content or 'When to Use' in content or 'when to use' in content.lower()
-            or '使用条件' in content or '前提' in content
-        ),
+        '前置条件': _has_prereq(content),
         '边界情况': (
             '边界' in content or '红线' in content or '不适用' in content or '禁止' in content
             or 'Anti-Pattern' in content or 'anti-pattern' in content.lower()
@@ -468,7 +479,7 @@ def build_precheck(frontmatter, meta_data, content, layers):
                      'detail': f'{desc_len} 字' + ('；含"等"字' if '等' in fm_desc else '')})
 
     struct_missing = [k for k, v in {
-        'name': fm_name, 'description': bool(fm_desc), '前置条件': '何时使用' in content or '使用条件' in content or 'When to Use' in content,
+        'name': fm_name, 'description': bool(fm_desc), '前置条件': _has_prereq(content),
         '边界情况': '边界' in content or '禁止' in content or '红线' in content,
         '示例': '示例' in content or '```' in content, '相关': '相关' in content or 'Related' in content,
     }.items() if not v]

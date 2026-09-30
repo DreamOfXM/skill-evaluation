@@ -2,13 +2,16 @@
 """
 证据纪律层机械核——检查一份评估报告是否诚实。
 
-只做三件可机械核的事，其余证据项由评审者自查（报告中如实标"证据层未核"）：
+只做四件可机械核的事，其余证据项由评审者自查（报告中如实标"证据层未核"）：
 1. 锚核对：报告声称的静态诊断四维（旧报告写"静态四维分"）vs 引擎实测（逐字比对）
 2. 层结论核对：报告层清检表中 承诺层/口径层 的**机械段**结论 vs 引擎 layers 输出
    （结论列可两段：机械段 ｜ 「人工」起头的复算段。人工段不进机械核——引擎那两层只查
    元数据同步与引用存在性，查不到"规则表写了几支、代码实现几支"；但人工段的 ⚠/✗ 照样
    受第 3 项证据块约束。failure-log #10）
 3. 证据块核对：每个 ⚠/✗ 判定的层，报告须有含命令痕迹的代码块（$ / exit / rc= / ←）
+4. 深度综合分复算：报告档位表逐行 Σ(权重×得分) 必须等于声称的综合分，且权重加总 = 1.00
+   （此前本核对不含此项，于是"表里 5/4/4、结论写 4.10"这类编造的合计能一路绿灯——
+   而证据纪律层满分正是发给"机械核全过"的，等于证书自己没查被证书的东西。failure-log #11）
 
 本脚本核的是"报告自己"，不评被测 skill——证据纪律层的分数由评审者按
 SKILL.md 分档表给：机械核全过=5；轻微不符=3；机械核报红=1（报告作废重做）。
@@ -106,6 +109,24 @@ def main():
     if len(flagged) > len(evidence_blocks):
         problems.append(f'证据块：{len(flagged)} 个 ⚠/✗ 判定只有 {len(evidence_blocks)} 个含命令+退出码的代码块——无证据指控')
 
+    # 4. 深度综合分复算：档位表 Σ(权重×得分) vs 声称的综合分；权重加总须 = 1.00
+    claimed_total = re.search(r'深度综合分[：:]\s*\**\s*([0-9.]+)\s*/\s*5', report)
+    if claimed_total is None:
+        notes.append('综合分复算：报告未声称深度综合分（快速模式），本项跳过')
+    else:
+        rows = re.findall(r'^\|\s*(?:高|中|低)\s*\|\s*[^|]+\|\s*([0-9.]+)\s*\|\s*([0-9.]+)', report, re.M)
+        if not rows:
+            problems.append('综合分复算：声称了深度综合分但报告里没有「档|层|权重|得分」逐行明细——分数不可复算')
+        else:
+            wsum = sum(float(w) for w, _ in rows)
+            calc = sum(float(w) * float(s) for w, s in rows)
+            if abs(wsum - 1.0) > 1e-9:
+                problems.append(f'综合分复算：档位表权重加总 {round(wsum, 2)} ≠ 1.00——与 SKILL.md Step 4 定档权重不符')
+            if abs(calc - float(claimed_total.group(1))) > 0.005:
+                problems.append(f'综合分复算：Σ(权重×得分)={round(calc, 2)}，报告声称 {claimed_total.group(1)}——无源小数，证据纪律层判 1')
+            else:
+                notes.append(f'综合分复算：{len(rows)} 行明细 Σ(权重×得分)={round(calc, 2)} 与声称一致')
+
     # 输出
     if problems:
         print(f'证据纪律层机械核：未过（{len(problems)} 项不符）')
@@ -114,10 +135,10 @@ def main():
         print('证据纪律层判 1：报告作废重做（SKILL.md 分档表）')
         sys.exit(1)
     print(f'证据纪律层机械核：全过（锚数字 {data["weighted_score"]} 一致；承诺/口径机械段一致；'
-          f'{len(flagged)} 个 ⚠/✗ 均有证据块）')
+          f'{len(flagged)} 个 ⚠/✗ 均有证据块；综合分明细可复算）')
     for n in notes:
         print(f'  · {n}')
-    print('机械核之外的自查项（分数可溯、无小数编造）由评审者完成；机械核未覆盖处如实标注')
+    print('机械核之外的自查项（档位理由对应的夹具是否真跑过、修复方向是否可执行）由评审者完成；机械核未覆盖处如实标注')
     sys.exit(0)
 
 

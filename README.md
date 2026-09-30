@@ -25,7 +25,7 @@ Evaluation = checking a skill against a **layered failure model** — knowing wh
 | **Execution** | declared commands fail or exit codes mismatch the contract | live runs + boundary probes + good/bad-sample completeness gate | ✗ | ✓ |
 | **Evidence discipline** | the evaluator's own failures: sourceless numbers, unevidenced claims | `check_report.py` mechanical check | ✓ | ✓ |
 
-Mechanical items (file existence, word counts, required sections, metadata sync) live in the **precheck** — pass/fail only, no score weight. Padding a file can no longer buy score; the deep composite is earned through behavioral and judgment-based criteria (tiered weights below). Every layer binds a detection action; the report is a layer-by-layer clearance list with evidence — never a bare "no problems". Incidents feed back: every real failure becomes a check (`references/failure-log.md`).
+Mechanical items (file existence, word counts, required sections, metadata sync) live in the **precheck** — pass/fail only, no score weight. Padding a file can no longer buy score; the deep composite is earned through behavioral and judgment-based criteria (tiered weights below). Every layer binds a detection action; the report is a layer-by-layer clearance list with evidence — never a bare "no problems". Incidents feed back: every real failure becomes a check (`references/failure-log.md`). **Who owns a criterion (5.0.5)**: changing one is the authority of someone outside the party being graded — a reviewer who finds a check unreasonable may fix their own artifact or raise the design flaw, but must not edit the grader to make their artifact pass (origin: failure-log #12). The same release collapsed the "prerequisites" check into one predicate `_has_prereq()` shared by both call sites, and made it **recognise section headings** — previously keyword-only, so a document with a literal `## 前置条件` section was reported as missing it.
 
 ---
 
@@ -53,7 +53,7 @@ Quick mode covers the first half (is it well-written?); deep mode samples the se
 
 ## Two Evaluation Modes
 
-**Quick mode (v5)** = a precheck list + two quality scores: mechanical items (existence / word count / required sections) are pass-or-fail only and **carry no score weight**; the scored items are trigger quality and actionability (0-5 each, no composite). The engine's four dimensions are downgraded to diagnostic data.
+**Quick mode (v5)** = a precheck list + two quality scores: mechanical items (existence / word count / required sections) are pass-or-fail only and **carry no score weight** (since 5.0.4 a precheck failure may still **cap** the layer it actually breaks, labelled 降档依据＝前置 X); the scored items are trigger quality and actionability (0-5 each, no composite). The engine's four dimensions are downgraded to diagnostic data.
 
 **Deep mode (v5, tiered weights)**:
 
@@ -69,7 +69,7 @@ Deep mode additionally includes:
 - **Trigger testing** — run `scripts/test_triggers.py` for measured hit / false-positive / miss rates
 - **Methodology audit** — every workflow step must have an owner: a command, a delegated doc, or the AI itself; delegation via an arbitration table counts, ownerless steps don't
 - **Real-run verification** — run the skill's declared commands (tool-type) or walk its instructions on a real case (advisory-type), pasting command + exit code + output excerpt as evidence
-- **Evidence-discipline check** — `scripts/check_report.py` mechanically verifies the report itself (anchor numbers / layer verdicts / evidence blocks); promise/consistency verdict cells use a two-segment form — mechanical segment verbatim from the engine ｜ human recomputation segment, which still owes evidence blocks
+- **Evidence-discipline check** — `scripts/check_report.py` mechanically verifies the report itself (anchor numbers / layer verdicts / evidence blocks / composite arithmetic Σ(weight×score) and weight sum = 1.00); promise/consistency verdict cells use a two-segment form — mechanical segment verbatim from the engine ｜ human recomputation segment, which still owes evidence blocks
 
 Deep mode actually runs the skill's commands, so it may take considerably longer — the time promise is qualitative only, no fixed minutes.
 

@@ -1,6 +1,6 @@
 {
   "slug": "skill-evaluation",
-  "version": "5.0.3",
+  "version": "5.0.5",
   "author": "DreamOfXM",
   "description": "按失效层评估 agent skill：触发、写作、身份、口径、承诺、方法论、执行；深度实跑验证。",
   "trigger_words": [
