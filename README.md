@@ -16,8 +16,8 @@ Evaluation = checking a skill against a **layered failure model** — knowing wh
 
 | Layer | Failure Shape | Detection Action | Quick | Deep |
 |-------|--------------|------------------|-------|------|
-| **Trigger quality** | misfire-prone word choices | bad-word rules; `test_triggers.py` | ✓ | +live |
-| **Actionability** | vague or contradictory instructions | vague-word / contradiction rules (engine) | ✓ | ✓ |
+| **Trigger quality** | misfires / never triggers | LLM routing: description trigger-coverage; keyword routing: bad-word rules + `test_triggers.py` | ✓ | +live |
+| **Actionability** | vague/contradictory instructions, or rigidity mismatched to task type | type-tiered detection (engine) + contradiction rules | ✓ | ✓ |
 | **Identity** | self-description contradicts the body | read positioning vs workflow side by side | ✓ | ✓ |
 | **Consistency** | numbers/claims differ across docs | targeted grep + recomputation | ✓ | ✓ |
 | **Promise** | referenced files/commands don't exist | precheck existence; `--help` + source audit + dependency health | precheck | ✓ |
@@ -25,7 +25,7 @@ Evaluation = checking a skill against a **layered failure model** — knowing wh
 | **Execution** | declared commands fail or exit codes mismatch the contract | live runs + boundary probes + good/bad-sample completeness gate | ✗ | ✓ |
 | **Evidence discipline** | the evaluator's own failures: sourceless numbers, unevidenced claims | `check_report.py` mechanical check | ✓ | ✓ |
 
-Mechanical items (file existence, word counts, required sections, metadata sync) live in the **precheck** — pass/fail only, no score weight. Padding a file can no longer buy score; the deep composite is earned through behavioral and judgment-based criteria (tiered weights below). Every layer binds a detection action; the report is a layer-by-layer clearance list with evidence — never a bare "no problems". Incidents feed back: every real failure becomes a check (`references/failure-log.md`). **Who owns a criterion (5.0.5)**: changing one is the authority of someone outside the party being graded — a reviewer who finds a check unreasonable may fix their own artifact or raise the design flaw, but must not edit the grader to make their artifact pass (origin: failure-log #12). The same release collapsed the "prerequisites" check into one predicate `_has_prereq()` shared by both call sites, and made it **recognise section headings** — previously keyword-only, so a document with a literal `## 前置条件` section was reported as missing it.
+Mechanical items (file existence, coverage markers, body-size budget, metadata sync) live in the **precheck** — pass/fail only, no score weight. Padding a file can no longer buy score (since 5.0.4 a precheck failure may still **cap** the layer it actually breaks, labelled 降档依据＝前置 X). Every layer binds a detection action; the report is a layer-by-layer clearance list with evidence — never a bare "no problems". Incidents feed back: every real failure becomes a check (`references/failure-log.md`). **Who owns a criterion (5.0.5)**: changing one is the authority of someone outside the party being graded (origin: failure-log #12). **External calibration (6.0.0, 2026-11-10)**: criteria realigned with worldwide best practice — description scored on *trigger coverage* (what + when-to-use + negative boundary), never on length; actionability tiered by skill type; `_meta.json` demoted to environment-adaptive; new body-size budget and with/without value-delta comparison; evidence discipline became a report-validity gate (origin: failure-log #13).
 
 ---
 
@@ -53,16 +53,17 @@ Quick mode covers the first half (is it well-written?); deep mode samples the se
 
 ## Two Evaluation Modes
 
-**Quick mode (v5)** = a precheck list + two quality scores: mechanical items (existence / word count / required sections) are pass-or-fail only and **carry no score weight** (since 5.0.4 a precheck failure may still **cap** the layer it actually breaks, labelled 降档依据＝前置 X); the scored items are trigger quality and actionability (0-5 each, no composite). The engine's four dimensions are downgraded to diagnostic data.
+**Quick mode (v6)** = a precheck list + two quality scores: mechanical items (existence / coverage markers / body size) are pass-or-fail only and **carry no score weight** (a precheck failure may still **cap** the layer it actually breaks, labelled 降档依据＝前置 X); the scored items are trigger quality (LLM routing reads description coverage) and type-tiered actionability (0-5 each, no composite). The engine's four dimensions are diagnostic data.
 
-**Deep mode (v5, tiered weights)**:
+**Deep mode (v6, tiered weights; not comparable with v5 and earlier)**:
 
 | Tier | Layers | Weight |
 |------|--------|--------|
-| High | Evidence discipline / Methodology / Execution | 20% each |
-| Mid | Identity / Consistency recomputation / Trigger quality / Actionability | 10% each |
+| High | Methodology / Execution (incl. with/without value-delta) | 25% each |
+| Mid | Trigger quality / Actionability | 15% each |
+| Mid | Identity / Consistency recomputation | 10% each |
 
-Tiering rationale: an incident distribution of n=9 supports exactly one ordering claim (evidence discipline on top), not decimal-level tuning. Mechanical items all moved into the precheck — **the deep composite can only be earned through behavioral and judgment-based criteria**. Deep reports pin the rubric hash in a config section (`shasum -a 256 references/skill-rubric.md | cut -c1-8`).
+The evidence-discipline layer (since v6) is a **report-validity gate**: `check_report.py` failing means the report is void and must be redone — it never subtracts from the evaluated skill's score. Deep reports pin the rubric hash in a config section (`shasum -a 256 references/skill-rubric.md | cut -c1-8`).
 
 Deep mode additionally includes:
 
@@ -77,17 +78,17 @@ Deep mode actually runs the skill's commands, so it may take considerably longer
 
 1. **Trigger Accuracy** - Skills fail most often at the *entry point*. Too broad = misfires. Too narrow = never activates.
 
-2. **Description Clarity** - Users decide in 3 seconds based on description. Vague = abandoned.
+2. **Trigger Coverage (description)** - The model reads only the description when choosing a skill. If "when to use" isn't written, it doesn't exist — length is a non-issue (official exemplars run hundreds of chars); coverage is everything.
 
-3. **Structure Completeness** - Skills with clear boundaries (what it does + doesn't do) have higher user satisfaction.
+3. **Structure Reference Items** - Gotchas sections are the highest-value body content in worldwide practice; boundaries and examples save the model detours.
 
-4. **Actionability** - Vague instructions ("consider", "when appropriate") cause LLM confusion. Precise instructions = reliable behavior.
+4. **Actionability** - Instructions must match the task type: tool-type needs executable anchors and verification loops; advisory-type needs branch structure and explained *why*. Unfalsifiable hedges ("适当 / when appropriate") are the real problem.
 
 ---
 
 ## Benchmark Results
 
-Evaluated popular skills (**legacy 4.x scale**: static four-dimension score, engine-measured and reproducible; since v5 the engine's four dims are diagnostic data, not comparable with v5 scoring):
+Evaluated popular skills (**legacy 4.x scale**: static four-dimension score, engine-measured and reproducible; since v6 the criteria changed — description scored on coverage, actionability tiered by type — **the table below is not comparable with v6**, kept as a v4-era archive):
 
 | Skill | Score | Trigger | Description | Structure | Actionability |
 |-------|-------|---------|-------------|-----------|---------------|
@@ -98,9 +99,9 @@ Evaluated popular skills (**legacy 4.x scale**: static four-dimension score, eng
 | ui-ux-pro-max | 2.4 | 1.0 ⚠️ | 1.5 ⚠️ | 4.2 | 3.0 |
 | project-skills | 2.2 | 1.0 ⚠️ | 1.5 ⚠️ | 2.5 | 3.8 |
 
-⚠️ 4.8 is the maximum quick mode can produce, not a high score: the trigger dimension is capped at 4.0 in the engine (`evaluate_skill.py:109`) and the four dimensions weigh 0.25 each, so `0.25×4.0 + 0.25×5.0×3 = 4.75 → 4.8`. The first row is this tool grading its own homework — read the other five.
+⚠️ The low "Description 1.5–2.5" scores below came from the **old length-based criterion** (those skills had no `_meta.json` and longer descriptions — under v6's coverage criterion most would score markedly higher). That old finding was exactly the starting point of failure-log #13: the criterion pointed the opposite way from official exemplars.
 
-> **Finding:** Most evaluated skills scored below 3.0 on trigger accuracy and description clarity. Common issues: missing `_meta.json`, overly long descriptions, no trigger word optimization.
+> **v6 recalibration readings**: acceptance-testing (official-recommended style) description 3.0 + length warning → **5.0**; karpathy-guidelines (no `_meta.json`) "high-priority: no trigger mechanism" false positive → **not applicable** + a real suggestion (add negative boundary).
 
 ---
 
@@ -153,7 +154,7 @@ python3 scripts/evaluate_skill.py ~/.agents/skills/your-skill --mode quick
 
 ---
 
-## Evaluation Report Example (v5 shape)
+## Evaluation Report Example (v6 shape)
 
 ```markdown
 # Skill Quality Report: my-awesome-skill @ <date>
@@ -166,26 +167,27 @@ python3 scripts/evaluate_skill.py ~/.agents/skills/your-skill --mode quick
 
 | Item | Result | Detail |
 |------|--------|--------|
-| _meta.json + trigger_words | fail | no trigger_words |
-| description length/patterns | warn | 127 chars |
-| Six required sections | missing | boundary, examples |
+| description trigger coverage / body size | fail/warn | 127 chars ✗when-to-use; 612 lines over budget |
+| _meta trigger_words (env-adaptive) / file existence / metadata sync | pass/n-a/doubt | … |
+| Structure reference items | reference | has: boundary, examples; missing: gotchas, related |
 
 ## Layer clearance (excerpt)
 
 | Layer | Detection action | Result | Evidence |
 |-------|-----------------|--------|----------|
-| Trigger quality | bad-word rules | ⚠ | contains "帮我", engine scores.trigger=… |
-| Actionability | vague-word rules | ⚠ | "适当" ×2, engine scores.actionability=… |
+| Trigger quality | coverage (LLM routing) / lexicon + live test | ⚠ | ✗when-to-use, engine scores.description=2.0 |
+| Actionability | type-tiered (mechanical ｜ human, take lower) | ⚠ | no verification loop, engine scores.actionability=… |
 | Promise | precheck existence | ✓ pass (mechanical) ｜ human ✗ fail: README references config/xx.json which doesn't exist | see evidence appendix |
+| Execution | live runs + probes + value delta | ⚠ | 2 assertions pass only with skill; 1 with no difference |
 
-## Quality scores: trigger 2.5 + actionability 3.0 (quick mode has no composite)
+## Quality scores: trigger 2.0 + actionability 3.0 (quick mode has no composite)
 
 ## Issues
-1. [high·precheck] no trigger_words — add _meta.json
+1. [high·trigger] description has no when-to-use context — add "Use when" + user phrasings
 2. [high·promise·human] referenced file missing — fix README or add the file
 
 ## Evidence appendix (deep mode required)
-<command + exit code + output excerpt>
+<command + exit code + output excerpt; value-delta comparison attached>
 ```
 
 ---

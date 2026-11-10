@@ -1,16 +1,15 @@
 {
   "slug": "skill-evaluation",
-  "version": "5.0.5",
+  "version": "6.0.0",
   "author": "DreamOfXM",
-  "description": "按失效层评估 agent skill：触发、写作、身份、口径、承诺、方法论、执行；深度实跑验证。",
+  "description": "按失效层评估 agent skill 质量（skill evaluation / skill quality）：触发、写作、身份、口径、承诺、方法论、执行；快速纯静态、深度含实跑与价值增量对比。你说「帮我评测一下这个 skill」「帮我评估这个 skill 写得怎么样」「评测一下」「review skill」，或要对比 skill 改进前后效果时使用。不触发：普通代码或产品功能的质量评审（那是 code review）、skill 安装前安全审计（skill-vetter 的职责）。",
   "trigger_words": [
     "帮我评测",
     "帮我评估",
     "写得怎么样",
-    "review skill",
-    "skill 质量",
     "评测一下",
-    "skill review",
+    "skill 质量",
+    "review skill",
     "skill evaluation",
     "skill quality"
   ],

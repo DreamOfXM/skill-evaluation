@@ -3,14 +3,18 @@
 评估一个 skill 的静态质量（快速模式的机械部分）。
 
 覆盖失效层（完整模型见 SKILL.md）：
-- 前置检查（不进分）：结构章节、description 字数句式、trigger_words 存在性、
-  承诺层存在性、口径层机械项
-- 触发层（静态）：trigger_words 误触词质量
-- 写作质量层：描述清晰度、结构完整性、指令可操作性
+- 前置检查（不进分）：description 触发覆盖度、正文体量与 token 估算、
+  trigger_words（仅关键词路由环境）、承诺层存在性、口径层机械项
+- 触发层（静态）：关键词路由环境查 trigger_words 误触词质量；
+  无 _meta.json/trigger_words（LLM 路由环境）返回 None，触发判定由 description 覆盖度承担
+- 写作质量层：description 触发覆盖度、结构参考项（含常见坑加分项）、
+  指令可操作性（按 工具型/咨询型/混合型 分档）
 - 身份层：定位段矛盾信号初筛（最终判定需人工对读）
 
 四维分数自 v5 起为「静态诊断四维」（诊断数据，不进评分口径）。
 身份层对读、方法论层审计、执行层实跑由评审者完成，引擎不替代。
+v6 校准（2026-11-10 用户指名，依据全网 skill 写作最佳实践调研，见 CHANGELOG 6.0.0 与 failure-log #13）：
+description 评「何时用覆盖度」不评长度；刚性指令词不再加分；可操作性按类型分档。
 
 用法:
   python3 evaluate_skill.py <skill_path> --mode quick|deep [--output markdown|json]
@@ -31,17 +35,51 @@ from pathlib import Path
 # 评分标准（与 SKILL.md 完全同步）
 # ============================================================
 
-# 模糊词汇及影响分值
-VAGUE_PATTERNS = {
-    'high': [r'适当', r'适时', r'必要时', r'酌情', r'视情况'],  # -0.5
-    'low': [r'考虑', r'建议', r'可以', r'或许'],  # -0.3
-}
+# 不可证伪的对冲词——只有这四个词还在扣（工具型/混合型的指令行）；咨询型的启发式
+# 措辞（考虑/建议/可以）是合法文风，v6 起不再扣分；"必须/禁止"等刚性词不再加分
+# （官方指引：满篇刚性指令是黄旗，解释原因比吼有效）
+VAGUE_UNFALSIFIABLE = [r'适当', r'适时', r'酌情', r'视情况']
 
-# 清晰词汇及影响分值
-CLEAR_PATTERNS = {
-    'medium': [r'必须', r'执行', r'运行', r'调用'],  # +0.2
-    'high': [r'禁止', r'不得', r'绝不'],  # +0.3
-}
+# description 触发覆盖度标记（v6：长度不再进判据——开放标准与官方范例都是数百字符，
+# 「做什么 + 何时用 + 负边界」的覆盖度才是触发率的杠杆；上限只有 1024 字符硬杠）
+WHEN_MARKERS = (
+    'use when', 'whenever', 'use this skill', 'use before', 'use after', 'use for',
+    'when the user', 'asks for', 'mentions', 'triggers include',
+    '何时', '什么时候', '时使用', '时用', '当用户', '用户说', '你说', '用户提到', '提到',
+    '用户问', '触发', '适用于', '想要', '想测', '想评', '要做',
+)
+NEG_MARKERS = (
+    '不触发', '不用', '不要用', '别用', '不适用', '不是用来', '除外',
+    "don't use", 'do not use', "don't trigger", 'do not trigger', 'not for',
+)
+
+
+def _has_boundary(content):
+    """「边界情况」参考项的唯一判据（v6 起维度三与前置检查共用本函数——
+    此前两处各持一套词表（7 token vs 3 token），failure-log #12 同型，2026-11-10 一并收拢）"""
+    c = content.lower()
+    return ('边界' in content or '红线' in content or '不适用' in content
+            or '禁止' in content or '注意事项' in content or 'anti-pattern' in c)
+
+
+def _has_examples(content):
+    """「示例」参考项的唯一判据（同上收拢，旧两处 4 token vs 2 token）"""
+    c = content.lower()
+    return '示例' in content or 'example' in c or '```' in content
+
+
+def _has_related(content):
+    """「相关 skill」参考项的唯一判据（同上收拢，旧两处 5 token vs 2 token）"""
+    c = content.lower()
+    return '相关' in content or 'related' in c or 'see also' in c
+
+
+def _has_gotchas(content):
+    """「常见坑（gotchas）」加分项判据——全网实践公认性价比最高的正文内容，
+    v6 起从结构参考项中单列（Anthropic 内部实测：带坑清单的 skill 准确率可测量地更高）"""
+    c = content.lower()
+    return ('常见坑' in content or '踩坑' in content or '踩过的坑' in content
+            or '血泪' in content or 'gotcha' in c or 'footgun' in c)
 
 
 def read_skill(path):
@@ -84,15 +122,15 @@ def score_trigger_accuracy(meta_data):
     trigger_words = meta_data.get('trigger_words', [])
     num_triggers = len(trigger_words)
 
-    # 数量评估
+    # v6 环境适配：无 _meta.json/trigger_words = LLM 路由环境（Claude/ZCode/Codex 标准
+    # 形态，开放标准里没有这个文件）——触发判定由 description 覆盖度承担，本维返回
+    # None 而不是 1.0。旧判据把标准形态的 skill 判成"高优先级问题：没有触发机制"，
+    # 属系统性误判（2026-11-10 校准，failure-log #13）
     if num_triggers == 0:
-        score = 1.0
-        issues.append({
-            'level': 'high',
-            'desc': '没有 trigger_words 定义',
-            'suggestion': '在 _meta.json 中添加 trigger_words 字段'
-        })
-    elif num_triggers > 15:
+        return None, issues
+
+    # 数量评估（仅关键词路由环境）
+    if num_triggers > 15:
         score = 3.0
         issues.append({
             'level': 'medium',
@@ -138,107 +176,94 @@ def score_trigger_accuracy(meta_data):
     return round(score, 1), issues
 
 
-def score_description_clarity(frontmatter):
-    """评估描述清晰度（0-5 分）"""
+def score_description_coverage(frontmatter):
+    """评估 description 触发覆盖度（0-5 分，v6 判据）。
+
+    长度不再进判据（旧判据 ≤50 字满分/>200 字 2 分——开放标准的官方范例 docx/pdf/xlsx
+    全在 437-948 字符，全球 693 个 skill 中位 357；长 description 是官方要求的写法：
+    pushy、含用户原话与负边界）。改查三样覆盖：
+      ①做什么（非空且 ≥10 字符，存在性代理检）
+      ②何时用（含触发语境标记：Use when/你说/当用户/提到…——LLM 路由下唯一杠杆）
+      ③负边界（不触发/不适用/Don't use…——防近邻误触）
+    硬杠只剩一条：>1024 字符 = 违反开放标准。
+    """
     issues = []
     description = frontmatter.get('description', '')
-
-    # 字数评分
     desc_len = len(description)
+    desc_lower = description.lower()
 
-    if desc_len == 0:
-        score = 0
-        issues.append({
+    if not description:
+        return 0.0, [{
             'level': 'high',
             'desc': 'description 为空',
-            'suggestion': '添加一句话描述 skill 的功能'
+            'suggestion': '补写：做什么 + 何时用（用户会怎么说）+ 什么时候不用'
+        }]
+
+    what = desc_len >= 10
+    when_hit = any(m in desc_lower for m in WHEN_MARKERS)
+    neg_hit = any(m in description for m in NEG_MARKERS) or any(m in desc_lower for m in NEG_MARKERS)
+
+    if not what:
+        score = 1.0
+        issues.append({
+            'level': 'high',
+            'desc': f'description 过短（{desc_len} 字符），说不清做什么',
+            'suggestion': '写清 skill 做什么 + 何时用'
         })
-    elif desc_len <= 50:
-        score = 5.0
-    elif desc_len <= 100:
+    elif not when_hit:
+        score = 3.0 if neg_hit else 2.0
+        issues.append({
+            'level': 'high',
+            'desc': 'description 无触发语境（缺"何时用/用户会怎么说"）',
+            'suggestion': '补 Use when 段：用户会说的原话、文件类型、交付物——LLM 路由下这是唯一杠杆，不写最可能漏触发'
+        })
+    elif not neg_hit:
         score = 4.0
-    elif desc_len <= 200:
-        score = 3.0
+        issues.append({
+            'level': 'low',
+            'desc': 'description 缺负边界（"不触发/不适用于…"）',
+            'suggestion': '补一句 Don\'t use for <相邻场景>，防近邻任务误触'
+        })
     else:
-        score = 2.0
-        issues.append({
-            'level': 'medium',
-            'desc': f'description 过长（{desc_len} 字）',
-            'suggestion': '精简到 100 字以内'
-        })
+        score = 5.0
 
-    # 扣分项
-    if '当用户' in description and '的时候' in description:
-        score -= 0.3
+    if desc_len > 1024:
+        score = min(score, 2.0)
         issues.append({
-            'level': 'low',
-            'desc': "description 包含'当用户...的时候'句式",
-            'suggestion': '直接描述 skill 做什么，不要用条件句'
-        })
-
-    if '等' in description:
-        score -= 0.5
-        issues.append({
-            'level': 'low',
-            'desc': "description 包含'等'字",
-            'suggestion': '精确列举或用更通用的描述'
-        })
-
-    comma_count = description.count('，') + description.count(',')
-    if comma_count > 3:
-        score -= 0.5
-        issues.append({
-            'level': 'low',
-            'desc': f"description 包含过多标点符号（{comma_count} 处）",
-            'suggestion': '尝试用更简洁的句式'
+            'level': 'high',
+            'desc': f'description 超 1024 字符（{desc_len}）——违反 Agent Skills 开放标准',
+            'suggestion': '压缩到 1024 以内'
         })
 
     score = max(0, min(5, score))
     return round(score, 1), issues
 
 
-PREREQ_HEADING = re.compile(
-    r"^#{1,6}\s*(前置条件|何时使用|使用条件|使用前提|前提|Prerequisites|When to Use)", re.M)
-
-
-def _has_prereq(content):
-    """「前置条件」这项检的唯一判据：小节标题命中，或旧关键词命中（保留，防倒退）。
-    两处调用共用本函数——此前结构评分用 5 个关键词、前置检查用 3 个，
-    实测 46 个已装 skill 里 5 个在两处得到相反结论；且不认小节标题，
-    写了 "## 前置条件" 的文档反被判缺项。2026-09-30 用户拍板改为认标题。"""
-    return bool(PREREQ_HEADING.search(content)) or any(
-        k in content for k in ('何时使用', 'When to Use', '使用条件', '前提')
-    ) or 'when to use' in content.lower()
-
-
 def score_structure_completeness(content, frontmatter):
-    """评估结构完整性（0-5 分）"""
+    """评估结构参考项（0-5 分，v6：参考项不再判缺项扣档）。
+
+    v6 变化：①「前置条件/何时使用」正文小节不再计入——触发判据在 description，
+    正文在触发之后才加载，写在正文里的 when-to-use 模型根本看不到（OpenAI 官方
+    明示该写法无效）；保留为参考信息不进判据。②「常见坑（gotchas）」顶替其位置
+    成为第六项——全网实践公认性价比最高的正文内容。③共用谓词（_has_boundary 等），
+    消灭两套词表。缺项只出低优先级建议（参考项），不构成缺陷指控。
+    """
     checks = {
         'name': bool(frontmatter.get('name')),
         'description': bool(frontmatter.get('description')),
-        '前置条件': _has_prereq(content),
-        '边界情况': (
-            '边界' in content or '红线' in content or '不适用' in content or '禁止' in content
-            or 'Anti-Pattern' in content or 'anti-pattern' in content.lower()
-            or '注意事项' in content
-        ),
-        '示例': (
-            '示例' in content or 'example' in content.lower() or 'Example' in content
-            or '```' in content  # 代码块通常表示示例
-        ),
-        '相关skill': (
-            '相关' in content or 'Related' in content or 'related' in content.lower()
-            or 'see also' in content.lower() or 'Related Skills' in content
-        ),
+        '边界情况': _has_boundary(content),
+        '示例': _has_examples(content),
+        '常见坑(gotchas)': _has_gotchas(content),
+        '相关skill': _has_related(content),
     }
 
     issues = []
     for name, passed in checks.items():
         if not passed:
             issues.append({
-                'level': 'medium',
-                'desc': f'缺少 {name} 相关内容',
-                'suggestion': f'添加 {name} 章节'
+                'level': 'low',
+                'desc': f'结构参考项缺：{name}（参考项，不扣档）',
+                'suggestion': f'可补 {name} 相关内容（name/description 两项除外——那是硬项）'
             })
 
     passed_count = sum(1 for v in checks.values() if v)
@@ -247,82 +272,104 @@ def score_structure_completeness(content, frontmatter):
     return round(score, 1), issues, checks
 
 
-def score_actionability(content):
-    """评估指令可操作性（0-5 分）"""
-    issues = []
+def score_actionability(content, skill_type='混合型'):
+    """评估指令可操作性（0-5 分，v6 按类型分档）。
 
-    # 只在指令相关区域检测模糊词汇（排除大段描述性文本）
-    # 分割成行，检测非描述性行
+    v6 判据（外部校准，2026-11-10）：
+    - 删掉"刚性词加分/柔性词扣分"的通用词频——官方指引明确说满篇 必须/禁止 是黄旗，
+      解释原因比吼有效；咨询型 skill 的启发式措辞（考虑/建议/可以）是合法文风。
+    - 改查"自由度与任务类型匹配"：工具型查可执行锚点（命令/代码块）与验证闭环，
+      咨询型查结构锚点（分支表/决策树）与示例；两类共用的加分项是"解释 why"。
+    - 仅剩四个不可证伪的对冲词（适当/适时/酌情/视情况）在工具型/混合型指令行中扣分。
+    - 矛盾检测原样保留（禁令+许可同段共词）。
+    """
+    issues = []
+    c_lower = content.lower()
+
+    has_commands = ('```' in content
+                    or bool(re.search(r'\b(?:python3?|bash|zsh|npm|npx|uv|git|curl)\b', content)))
+    has_verification = any(k in content for k in ('退出码', '什么算', '复算', '--help', '校验', '验证'))
+    has_why = any(k in content for k in ('因为', '原因是', '避免', '防止', '否则会', '否则就', '教训'))
+    has_structure = ('|---' in content
+                     or any(k in content for k in ('决策树', '分支', '场景表', '流程图')))
+    has_examples = _has_examples(content)
+
+    # 只在指令相关区域检测对冲词（排除大段描述性文本与代码块）
     lines = content.split('\n')
     instruction_lines = []
     in_code_block = False
-
     for line in lines:
-        # 跳过代码块
         if '```' in line:
             in_code_block = not in_code_block
             continue
         if in_code_block:
             continue
-        # 跳过标题和空行
         stripped = line.strip()
-        if not stripped or stripped.startswith('#') or stripped.startswith('-'):
+        if not stripped or stripped.startswith(('#', '-')):
             continue
-        # 跳过过长的行（通常是描述性段落）
         if len(stripped) > 150:
             continue
-        # 收集可能是指令的行
-        if any(word in stripped for word in ['必须', '禁止', '执行', '运行', '调用', '使用']):
+        if any(word in stripped for word in ('必须', '禁止', '执行', '运行', '调用', '使用', '做', '写')):
             instruction_lines.append(stripped)
-
-    # 统计指令行中的模糊词汇
     instruction_text = ' '.join(instruction_lines)
-    vague_deduct = 0
-    for pattern in VAGUE_PATTERNS['high']:
-        count = len(re.findall(pattern, instruction_text))
-        vague_deduct += count * 0.5
-    for pattern in VAGUE_PATTERNS['low']:
-        count = len(re.findall(pattern, instruction_text))
-        vague_deduct += count * 0.3
 
-    # 统计清晰词汇
-    clear_add = 0
-    for pattern in CLEAR_PATTERNS['medium']:
-        clear_add += len(re.findall(pattern, content)) * 0.2
-    for pattern in CLEAR_PATTERNS['high']:
-        clear_add += len(re.findall(pattern, content)) * 0.3
+    vague_count = sum(len(re.findall(p, instruction_text)) for p in VAGUE_UNFALSIFIABLE)
 
-    # 基础分 + 加减分
-    score = 3.0 + clear_add - vague_deduct
+    def tool_adjust():
+        adj = (1.0 if has_commands else 0.0) + (0.5 if has_verification else 0.0) + (0.5 if has_why else 0.0)
+        pen = min(1.2, vague_count * 0.3)
+        return adj - pen
 
-    # 矛盾检测（优化版，减少误报）
+    def consult_adjust():
+        return ((1.0 if has_structure else 0.0) + (0.5 if has_examples else 0.0)
+                + (0.5 if has_why else 0.0))
+
+    if skill_type == '工具型':
+        score = 3.0 + tool_adjust()
+    elif skill_type == '咨询型':
+        score = 3.0 + consult_adjust()
+    else:
+        score = 3.0 + (tool_adjust() + consult_adjust()) / 2
+
+    if skill_type in ('工具型', '混合型') and vague_count:
+        issues.append({
+            'level': 'low',
+            'desc': f'发现 {vague_count} 处不可证伪的对冲词（适当/适时/酌情/视情况）',
+            'suggestion': '换成可判定的写法：什么条件下做什么，怎么算完成'
+        })
+    if skill_type in ('工具型', '混合型') and not has_commands:
+        issues.append({
+            'level': 'medium',
+            'desc': '工具型 skill 未见可执行锚点（命令/代码块）',
+            'suggestion': '关键步骤给出可直接运行的命令或脚本调用'
+        })
+    if not has_why:
+        issues.append({
+            'level': 'low',
+            'desc': '未见解释原因（"因为/避免/否则会…"）',
+            'suggestion': '非显然规则解释 why——官方指引：解释原因比刚性 MUST 更有效'
+        })
+
+    # 矛盾检测（保留 v5 逻辑：禁令与许可同段共词才可能是矛盾）
     lines = content.split('\n')
     contradictions = []
-
-    # 找出所有包含关键词的行及其上下文
-    must_lines = []  # 包含"必须"或"禁止"的行
-    suggest_lines = []  # 包含"可以"或"建议"的行
-
+    must_lines, suggest_lines = [], []
     for i, line in enumerate(lines):
         stripped = line.strip()
         if not stripped or stripped.startswith('#'):
             continue
         if '必须' in stripped or '禁止' in stripped or '不得' in stripped:
-            must_lines.append((i+1, stripped[:100]))
+            must_lines.append((i + 1, stripped[:100]))
         if '可以' in stripped and '但不' not in stripped and '除非' not in stripped:
-            suggest_lines.append((i+1, stripped[:100]))
+            suggest_lines.append((i + 1, stripped[:100]))
 
-    # 只有在同一段落内（5行内）出现才可能是矛盾
     for m_line, m_text in must_lines:
         for s_line, s_text in suggest_lines:
             if 0 < s_line - m_line <= 5:
-                # 进一步检查：是否是真正的矛盾
-                # "禁止 X" 和 "可以 X" 才是矛盾
-                # "必须 X" 和 "可以 Y" 不是矛盾
                 must_words = set(re.findall(r'[\w]+', m_text))
                 suggest_words = set(re.findall(r'[\w]+', s_text))
                 overlap = must_words & suggest_words
-                if len(overlap) >= 1:  # 有共同词汇才可能是矛盾
+                if len(overlap) >= 1:
                     contradictions.append((m_line, s_line, list(overlap)[:3]))
 
     if contradictions:
@@ -333,13 +380,6 @@ def score_actionability(content):
                 'desc': f'行 {line1} 和 {line2} 可能存在矛盾（共同词：{", ".join(overlap)}）',
                 'suggestion': '检查并修正矛盾的指令'
             })
-
-    if vague_deduct > 0:
-        issues.append({
-            'level': 'low',
-            'desc': f'发现 {int(vague_deduct * 2)} 处模糊表述',
-            'suggestion': '将"适当"、"考虑"等词替换为更明确的指令'
-        })
 
     score = max(0, min(5, score))
     return round(score, 1), issues
@@ -445,7 +485,7 @@ def check_static_layers(skill_path, content, frontmatter, meta_data):
 
 
 def build_precheck(frontmatter, meta_data, content, layers):
-    """前置检查（v5：机械项不进分，只做过/不过判定）"""
+    """前置检查（v6：机械项不进分，只做过/不过判定；新增正文体量与环境适配分流）"""
     precheck = []
 
     fm_name = bool(frontmatter.get('name'))
@@ -456,35 +496,61 @@ def build_precheck(frontmatter, meta_data, content, layers):
         'detail': '' if (fm_name and fm_desc) else 'name 或 description 缺失',
     })
 
+    # 环境适配项（v6）：trigger_words 只在关键词路由环境是必查项；
+    # LLM 路由环境（Claude/ZCode/Codex 标准）没有这个文件，触发判定由下一行覆盖度承担
     trigger_words = meta_data.get('trigger_words', [])
     n = len(trigger_words)
     if n == 0:
-        result, detail = '不过', '无 trigger_words'
+        result, detail = '不适用', '无 trigger_words——LLM 路由环境，触发看 description 覆盖度（下一行）'
     elif n > 15:
-        result, detail = '不过', f'{n} 个（>15 过多）'
+        result, detail = '不过', f'{n} 个（>15 过多，关键词路由环境）'
     elif n > 10:
-        result, detail = '警告', f'{n} 个（11-15 偏多）'
+        result, detail = '警告', f'{n} 个（11-15 偏多，关键词路由环境）'
     else:
-        result, detail = '过', f'{n} 个'
-    precheck.append({'item': '_meta.json + trigger_words', 'result': result, 'detail': detail})
+        result, detail = '过', f'{n} 个（关键词路由环境）'
+    precheck.append({'item': '_meta.json trigger_words（环境适配）', 'result': result, 'detail': detail})
 
+    # v6 核心：description 触发覆盖度（做什么 + 何时用 + 负边界；>1024 违反开放标准）
     desc_len = len(fm_desc)
-    if desc_len == 0 or desc_len > 200:
+    desc_lower = fm_desc.lower()
+    what = desc_len >= 10
+    when_hit = any(m in desc_lower for m in WHEN_MARKERS)
+    neg_hit = any(m in fm_desc for m in NEG_MARKERS) or any(m in desc_lower for m in NEG_MARKERS)
+    marks = f"{'✓' if what else '✗'}做什么 {'✓' if when_hit else '✗'}何时用 {'✓' if neg_hit else '✗'}负边界"
+    if not fm_desc or not when_hit or desc_len > 1024:
         result = '不过'
-    elif desc_len > 100 or '等' in fm_desc:
+    elif not neg_hit:
         result = '警告'
     else:
         result = '过'
-    precheck.append({'item': 'description 字数句式', 'result': result,
-                     'detail': f'{desc_len} 字' + ('；含"等"字' if '等' in fm_desc else '')})
+    precheck.append({'item': 'description 触发覆盖度', 'result': result,
+                     'detail': f'{desc_len} 字；{marks}'})
 
-    struct_missing = [k for k, v in {
-        'name': fm_name, 'description': bool(fm_desc), '前置条件': _has_prereq(content),
-        '边界情况': '边界' in content or '禁止' in content or '红线' in content,
-        '示例': '示例' in content or '```' in content, '相关': '相关' in content or 'Related' in content,
-    }.items() if not v]
-    precheck.append({'item': '六项结构章节', 'result': '过' if not struct_missing else '缺项',
-                     'detail': '' if not struct_missing else '缺：' + '、'.join(struct_missing)})
+    # v6 新增：正文体量与 token 估算（上下文是公共品——官方建议 <500 行/<5000 token，
+    # 压缩重挂截断线 20000 字节；不评油耗等于没评）
+    body = content.split('---', 2)[2] if content.startswith('---') and len(content.split('---', 2)) >= 3 else content
+    body_lines = len(body.split('\n'))
+    est_tokens = round((len(body) + desc_len) / 4)
+    body_bytes = len(content.encode('utf-8'))
+    if body_lines > 800 or est_tokens > 8000:
+        result = '不过'
+    elif body_lines > 500 or est_tokens > 5000 or body_bytes > 20000:
+        result = '警告'
+    else:
+        result = '过'
+    precheck.append({'item': '正文体量与 token 估算', 'result': result,
+                     'detail': f'{body_lines} 行；正文+description 约 {est_tokens} token；全文 {body_bytes} 字节'})
+
+    # 结构参考项（v6：不判缺项——报告缺什么供参考，name/description 硬项在前置第一行）
+    ref_items = {
+        '边界': _has_boundary(content), '示例': _has_examples(content),
+        '常见坑': _has_gotchas(content), '相关': _has_related(content),
+    }
+    present = [k for k, v in ref_items.items() if v]
+    absent = [k for k, v in ref_items.items() if not v]
+    precheck.append({'item': '结构参考项（不判不过）', 'result': '参考',
+                     'detail': '有：' + ('、'.join(present) if present else '无') + '；缺：'
+                               + ('、'.join(absent) if absent else '无') + '（常见坑为高价值加分项）'})
 
     for key, item_name in (('承诺层', '引用文件存在性'), ('口径层', '元数据同步')):
         row = next((l for l in layers if l['layer'] == key), None)
@@ -506,12 +572,12 @@ def generate_report(skill_path, scores, mode='quick'):
     skill_type = scores.get('type', '混合型')
 
     # 静态诊断四维（触发静态 + 写作质量层；v5 起为诊断数据，不进评分口径）
-    weighted_score = (
-        trigger_score * 0.25 +
-        desc_score * 0.25 +
-        struct_score * 0.25 +
-        action_score * 0.25
-    )
+    # v6：触发静态在 LLM 路由环境为 None（trigger_words 不适用），加权 = 其余三维均值
+    dims = [d for d in (trigger_score, desc_score, struct_score, action_score) if d is not None]
+    weighted_score = sum(dims) / len(dims) if dims else 0.0
+    trigger_disp = '—' if trigger_score is None else str(trigger_score)
+    trigger_status = ('⏠ 不适用（LLM 路由环境，看描述覆盖度）' if trigger_score is None
+                      else ('✓ 良好' if trigger_score >= 4 else '⚠ 需改进'))
 
     # 收集所有问题
     all_issues = []
@@ -528,8 +594,8 @@ def generate_report(skill_path, scores, mode='quick'):
     for lay in layers:
         layer_table += f"| {lay['layer']} | {lay['action']} | {lay['status']} | {lay['detail']} |\n"
     layer_table += "| 方法论层 | 工作流逐步找主 | ⏸ 不在引擎职责内 | 深度模式由评审者审计 |\n"
-    layer_table += "| 执行层 | 实跑 + 边界探针 | ⏸ 不在引擎职责内 | 深度模式由评审者实跑 |\n"
-    layer_table += "| 证据纪律层 | check_report.py 机械核 | ⏠ 不在引擎职责内 | 对报告本身核对，非被评 skill |\n"
+    layer_table += "| 执行层 | 实跑 + 边界探针 + 价值增量(with/without) | ⏸ 不在引擎职责内 | 深度模式由评审者实跑 |\n"
+    layer_table += "| 证据纪律层 | check_report.py 机械核（v6 起为报告合格门，不进被测分） | ⏠ 不在引擎职责内 | 对报告本身核对，非被评 skill |\n"
 
     # 前置检查（不进分）
     precheck = scores.get('precheck', [])
@@ -552,10 +618,10 @@ def generate_report(skill_path, scores, mode='quick'):
 
 | 维度 | 分数 | 状态 |
 |------|------|------|
-| 触发准确性 | {trigger_score} | {'✓ 良好' if trigger_score >= 4 else '⚠ 需改进'} |
-| 描述清晰度 | {desc_score} | {'✓ 良好' if desc_score >= 4 else '⚠ 需改进'} |
-| 结构完整性 | {struct_score} | {'✓ 良好' if struct_score >= 4 else '⚠ 需改进'} |
-| 指令可操作性 | {action_score} | {'✓ 良好' if action_score >= 4 else '⚠ 需改进'} |
+| 触发准确性 | {trigger_disp} | {trigger_status} |
+| 触发覆盖度（description） | {desc_score} | {'✓ 良好' if desc_score >= 4 else '⚠ 需改进'} |
+| 结构参考项 | {struct_score} | {'✓ 良好' if struct_score >= 4 else '⚠ 需改进'} |
+| 指令可操作性（按{skill_type}分档） | {action_score} | {'✓ 良好' if action_score >= 4 else '⚠ 需改进'} |
 
 ---
 
@@ -565,7 +631,7 @@ def generate_report(skill_path, scores, mode='quick'):
 |--------|------|
 | name 字段 | {'✓' if checks.get('name') else '✗'} |
 | description 字段 | {'✓' if checks.get('description') else '✗'} |
-| 前置条件说明 | {'✓' if checks.get('前置条件') else '✗'} |
+| 常见坑(gotchas，加分项) | {'✓' if checks.get('常见坑(gotchas)') else '✗'} |
 | 边界情况处理 | {'✓' if checks.get('边界情况') else '✗'} |
 | 示例 | {'✓' if checks.get('示例') else '✗'} |
 | 相关 skill 引用 | {'✓' if checks.get('相关skill') else '✗'} |
@@ -628,7 +694,7 @@ def generate_report(skill_path, scores, mode='quick'):
         'mode': mode,
         'type': skill_type,
         'score_kind': 'static_diagnostic',
-        'note': 'v5：四维为静态诊断数据，不进评分；评分口径见 SKILL.md Step 4',
+        'note': 'v6：description=触发覆盖度；可操作性按类型分档；正文体量入前置检查；_meta 为环境适配项。四维为静态诊断数据，不进评分；评分口径见 SKILL.md Step 4',
         'precheck': precheck,
         'scores': {
             'trigger': trigger_score,
@@ -658,7 +724,7 @@ def main():
 你想怎么评估？
 
 A) 快速评估 - 前置检查清单（机械项过/不过，不进分）+ 触发质量与可操作性两个质量分 + Top 3 问题
-B) 深度评估 - 快速评估 + 方法论层与执行层实跑验证 + 证据纪律层机械核（八层全检）；要实跑被测 skill 的命令，耗时可能较长
+B) 深度评估 - 快速评估 + 方法论层与执行层实跑验证（含价值增量 with/without 对比）+ 证据纪律层机械核（八层全检）；要实跑被测 skill 的命令，耗时可能较长
 
 (选 A 或 B；用户消息已明示"快速/深度"时按其选择传 --mode)""", file=sys.stderr)
         sys.exit(2)
@@ -670,12 +736,13 @@ B) 深度评估 - 快速评估 + 方法论层与执行层实跑验证 + 证据�
         sys.exit(1)
 
     # 评分
+    skill_type = determine_skill_type(content, frontmatter)
     scores = {
         'trigger': score_trigger_accuracy(meta_data),
-        'description': score_description_clarity(frontmatter),
+        'description': score_description_coverage(frontmatter),
         'structure': score_structure_completeness(content, frontmatter),
-        'actionability': score_actionability(content),
-        'type': determine_skill_type(content, frontmatter),
+        'actionability': score_actionability(content, skill_type),
+        'type': skill_type,
         'layers': check_static_layers(args.skill_path, content, frontmatter, meta_data),
     }
     scores['precheck'] = build_precheck(frontmatter, meta_data, content, scores['layers'])
