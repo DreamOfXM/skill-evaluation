@@ -4,7 +4,8 @@
 ![Frameworks](https://img.shields.io/badge/Frameworks-Claude_Qoder_LangChain_AutoGen-teal?style=flat-square&logo=langchain)
 
 > ✅ **Multi-Agent Framework Compatible**: Claude Code Skills, Qoder Skills, LangChain Tools, AutoGen Agents and other LLM applications  
-> ❌ Not specific to any single agent platform (e.g., not limited to Claude Code)
+> ❌ Not specific to any single agent platform (e.g., not limited to Claude Code)  
+> 🔁 **v6.0.0 (2026-11-10) criteria realigned with worldwide best practice** — description scored on trigger coverage (not length), type-tiered actionability, body-size budget, and a with/without value-delta check. Origin & regression data: `references/failure-log.md` #13.
 
 [English](README.md) | [中文](README.zh-CN.md)
 
@@ -67,10 +68,11 @@ The evidence-discipline layer (since v6) is a **report-validity gate**: `check_r
 
 Deep mode additionally includes:
 
-- **Trigger testing** — run `scripts/test_triggers.py` for measured hit / false-positive / miss rates
+- **Trigger testing** — keyword-routing environments run `scripts/test_triggers.py` for measured hit / false-positive / miss rates; LLM-routing environments (no trigger_words) are judged on description trigger coverage instead
 - **Methodology audit** — every workflow step must have an owner: a command, a delegated doc, or the AI itself; delegation via an arbitration table counts, ownerless steps don't
 - **Real-run verification** — run the skill's declared commands (tool-type) or walk its instructions on a real case (advisory-type), pasting command + exit code + output excerpt as evidence
-- **Evidence-discipline check** — `scripts/check_report.py` mechanically verifies the report itself (anchor numbers / layer verdicts / evidence blocks / composite arithmetic Σ(weight×score) and weight sum = 1.00); promise/consistency verdict cells use a two-segment form — mechanical segment verbatim from the engine ｜ human recomputation segment, which still owes evidence blocks
+- **Value-delta comparison (new in v6)** — run the same task twice, with and without the skill, in two clean contexts; report the assertions that pass *only with* the skill. Commands running ≠ the skill being useful
+- **Evidence-discipline gate (since v6)** — `scripts/check_report.py` mechanically verifies the report itself (anchor numbers / layer verdicts / evidence blocks / composite arithmetic); failing it voids the report — it never subtracts from the evaluated skill's score. Promise/consistency verdict cells use a two-segment form — mechanical segment verbatim from the engine ｜ human recomputation segment, which still owes evidence blocks
 
 Deep mode actually runs the skill's commands, so it may take considerably longer — the time promise is qualitative only, no fixed minutes.
 
